@@ -28,10 +28,12 @@ class Settings:
     groq_api_key: str = os.getenv("GROQ_API_KEY", "")
 
     # Flash-tier models: cheap + fast, plenty for a tutoring agent.
-    # NOTE: model IDs get RETIRED (gemini-2.0-flash died mid-2026 with a
-    # 404 "no longer available"). That's why this is env-config, not a
-    # hardcoded constant — a model swap must never require a code deploy.
-    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+    # TWO real-world lessons baked in (both hit during P2/P4):
+    # 1. Model IDs get RETIRED (gemini-2.0-flash 404'd mid-project).
+    # 2. Same tier family, wildly different latency: 3.8-flash took
+    #    50-120s to first token (thinking + free-tier queueing);
+    #    3.5-flash measured 1.1s. Benchmark before choosing.
+    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
     groq_model: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
     # --- Runtime flags ----------------------------------------------------

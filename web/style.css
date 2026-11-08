@@ -1,0 +1,93 @@
+/* PrepRight chat — deliberately dependency-free (no CDN, works offline).
+   Design tokens up top so restyling later is one-place-only. */
+:root {
+  --bg: #0f1420;
+  --panel: #1a2233;
+  --bubble-user: #2f6df6;
+  --bubble-ai: #232d42;
+  --text: #e8edf7;
+  --muted: #8b98b3;
+  --accent: #ffb84d;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid #2a3650;
+}
+
+.brand { font-size: 1.25rem; font-weight: 700; }
+.brand span { color: var(--accent); }
+
+.student-bar { display: flex; gap: 8px; align-items: center; }
+
+select, input, button {
+  font: inherit;
+  color: var(--text);
+  background: #141b2c;
+  border: 1px solid #2a3650;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+button { cursor: pointer; }
+button.ghost { background: transparent; }
+
+.onboarding {
+  margin: auto;
+  text-align: center;
+  background: var(--panel);
+  padding: 32px 40px;
+  border-radius: 14px;
+}
+.onboarding form { display: flex; gap: 8px; justify-content: center; margin-top: 18px; }
+.onboarding button { background: var(--accent); color: #201200; font-weight: 600; }
+.onboarding h2 { margin: 0 0 6px; }
+.onboarding p { color: var(--muted); margin: 0; }
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 780px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 16px;
+  gap: 10px;
+}
+
+#messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; }
+
+.msg {
+  max-width: 82%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.msg.user { align-self: flex-end; background: var(--bubble-user); border-bottom-right-radius: 4px; }
+.msg.ai   { align-self: flex-start; background: var(--bubble-ai); border-bottom-left-radius: 4px; }
+
+.status { color: var(--muted); font-style: italic; padding: 0 4px; }
+
+#composer { display: flex; gap: 8px; }
+#composer input { flex: 1; }
+#composer button { background: var(--accent); color: #201200; font-weight: 600; }
+#composer button:disabled { opacity: 0.5; cursor: default; }
+
+.hidden { display: none !important; }

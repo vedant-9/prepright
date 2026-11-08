@@ -8,9 +8,12 @@ Run:  .venv/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000
 """
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
+from app.chat_api import router as chat_router
 from app.db import init_db
 from app.students_api import router as students_router
 
@@ -30,23 +33,20 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="PrepRight", version="0.1.0", lifespan=lifespan)
-app.include_router(students_router)
 
 
-# Standard liveness probe. Later used by the HF Spaces deploy (P11)
-# and any uptime check — cheap request, no auth, no DB touch.
+# Standard liveness probe (HF Spaces deploy + uptime checks in P11).
 @app.get("/healthz")
 def healthz() -> dict:
     return {"status": "ok", "app": "prepright"}
 
 
-# Friendly landing at "/" so an open browser tab isn't blank while the
-# real UI (P4) doesn't exist yet. /docs is FastAPI's auto-generated
-# interactive API explorer (OpenAPI/Swagger) — free, always in sync.
-@app.get("/")
-def root() -> dict:
-    return {
-        "app": "PrepRight",
-        "status": "building (P2 of 11)",
-        "endpoints": {"/healthz": "liveness", "/docs": "interactive API docs"},
-    }
+# Routers BEFORE the static mount: Starlette matches routes in
+# registration order, and the "/" mount below is a catch-all —
+# anything registered after it would never be reached.
+app.include_router(students_router)
+app.include_router(chat_router)
+
+# Serve the web UI. html=True maps "/" -> web/index.html.
+WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
