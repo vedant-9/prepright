@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PrepRight — Math Tutor</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">Prep<span>Right</span></div>
+    <div class="student-bar">
+      <select id="student-select" aria-label="Who is learning?"></select>
+      <button id="new-student-btn" class="ghost">+ New</button>
+    </div>
+  </header>
+
+  <!-- hidden until a student is picked/created -->
+  <div id="onboarding" class="onboarding hidden">
+    <h2>Welcome! 👋</h2>
+    <p>Tell us who's learning maths today.</p>
+    <form id="onboarding-form">
+      <input id="ob-name" placeholder="First name" maxlength="40" required />
+      <select id="ob-grade" aria-label="Class">
+        <option value="8">Class 8</option>
+        <option value="9">Class 9</option>
+        <option value="10" selected>Class 10</option>
+      </select>
+      <button type="submit">Start learning</button>
+    </form>
+  </div>
+
+  <main id="chat" class="hidden">
+    <div id="messages" aria-live="polite"></div>
+    <div id="status" class="status hidden">PrepRight is thinking…</div>
+    <form id="composer">
+      <input id="input" placeholder="Ask about any chapter — e.g. 'help me with quadratic equations'" autocomplete="off" maxlength="2000" />
+      <button type="submit" id="send">Send</button>
+    </form>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
