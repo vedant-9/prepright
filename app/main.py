@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.db import init_db
+from app.students_api import router as students_router
 
 
 # `lifespan` is the modern startup/shutdown hook (FastAPI's older
@@ -29,6 +30,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="PrepRight", version="0.1.0", lifespan=lifespan)
+app.include_router(students_router)
 
 
 # Standard liveness probe. Later used by the HF Spaces deploy (P11)
