@@ -28,9 +28,10 @@ class Settings:
     groq_api_key: str = os.getenv("GROQ_API_KEY", "")
 
     # Flash-tier models: cheap + fast, plenty for a tutoring agent.
-    # (Trade-off vs Pro-tier models: slightly weaker reasoning, but a
-    # 10-14 year old's curriculum doesn't need frontier intelligence.)
-    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    # NOTE: model IDs get RETIRED (gemini-2.0-flash died mid-2026 with a
+    # 404 "no longer available"). That's why this is env-config, not a
+    # hardcoded constant — a model swap must never require a code deploy.
+    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
     groq_model: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
     # --- Runtime flags ----------------------------------------------------
