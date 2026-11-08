@@ -36,3 +36,15 @@ app = FastAPI(title="PrepRight", version="0.1.0", lifespan=lifespan)
 @app.get("/healthz")
 def healthz() -> dict:
     return {"status": "ok", "app": "prepright"}
+
+
+# Friendly landing at "/" so an open browser tab isn't blank while the
+# real UI (P4) doesn't exist yet. /docs is FastAPI's auto-generated
+# interactive API explorer (OpenAPI/Swagger) — free, always in sync.
+@app.get("/")
+def root() -> dict:
+    return {
+        "app": "PrepRight",
+        "status": "building (P2 of 11)",
+        "endpoints": {"/healthz": "liveness", "/docs": "interactive API docs"},
+    }
