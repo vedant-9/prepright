@@ -1,0 +1,153 @@
+{
+  "version": "2026.1",
+  "source": "CBSE public curriculum & marking scheme (unit-wise distribution), NCERT chapter titles",
+  "last_verified": "2026-11-08",
+  "notes": [
+    "Marks weightage is attached to UNITS, not chapters — that is exactly how CBSE publishes it (e.g. 'Algebra: 20 marks' covers 4 chapters). Chapter-level marks would be fabricated; unit-level is sourced fact.",
+    "NCERT is rolling out new textbook series (NCF-SE 2023); grades 5-7 titles below are provisional until re-verified against current books.",
+    "Question styles: board-exam patterns for grades 9-10; simpler mix below."
+  ],
+
+  "grades": {
+    "10": {
+      "styles": ["mcq", "very_short", "short", "long", "case_study"],
+      "units": [
+        { "id": "u-number",  "title": "Number Systems",        "marks": 6 },
+        { "id": "u-algebra", "title": "Algebra",                "marks": 20 },
+        { "id": "u-coordinate", "title": "Coordinate Geometry", "marks": 6 },
+        { "id": "u-geometry", "title": "Geometry",              "marks": 15 },
+        { "id": "u-trigonometry", "title": "Trigonometry",      "marks": 12 },
+        { "id": "u-mensuration", "title": "Mensuration",        "marks": 10 },
+        { "id": "u-stats-prob", "title": "Statistics & Probability", "marks": 11 }
+      ],
+      "chapters": [
+        { "id": "g10-c-real-numbers",            "title": "Real Numbers",                     "unit": "u-number" },
+        { "id": "g10-c-polynomials",             "title": "Polynomials",                      "unit": "u-algebra" },
+        { "id": "g10-c-pair-linear-eq",          "title": "Pair of Linear Equations in Two Variables", "unit": "u-algebra" },
+        { "id": "g10-c-quadratic-eq",            "title": "Quadratic Equations",              "unit": "u-algebra" },
+        { "id": "g10-c-arithmetic-progressions", "title": "Arithmetic Progressions",           "unit": "u-algebra" },
+        { "id": "g10-c-coordinate-geometry",     "title": "Coordinate Geometry",               "unit": "u-coordinate" },
+        { "id": "g10-c-triangles",               "title": "Triangles",                        "unit": "u-geometry" },
+        { "id": "g10-c-intro-trigonometry",      "title": "Introduction to Trigonometry",     "unit": "u-trigonometry" },
+        { "id": "g10-c-apps-trigonometry",       "title": "Some Applications of Trigonometry", "unit": "u-trigonometry" },
+        { "id": "g10-c-circles",                 "title": "Circles",                          "unit": "u-geometry" },
+        { "id": "g10-c-areas-circles",           "title": "Areas Related to Circles",         "unit": "u-mensuration" },
+        { "id": "g10-c-surface-volumes",         "title": "Surface Areas and Volumes",        "unit": "u-mensuration" },
+        { "id": "g10-c-statistics",              "title": "Statistics",                       "unit": "u-stats-prob" },
+        { "id": "g10-c-probability",             "title": "Probability",                      "unit": "u-stats-prob" }
+      ]
+    },
+
+    "9": {
+      "styles": ["mcq", "very_short", "short", "long"],
+      "unit_marks_basis": "typical school-exam unit distribution (CBSE publishes unit weightage at board level only for grade 10)",
+      "units": [
+        { "id": "u-number",  "title": "Number Systems",   "marks": 8 },
+        { "id": "u-algebra", "title": "Algebra",           "marks": 17 },
+        { "id": "u-coordinate", "title": "Coordinate Geometry", "marks": 4 },
+        { "id": "u-geometry", "title": "Geometry",         "marks": 28 },
+        { "id": "u-mensuration", "title": "Mensuration",   "marks": 13 },
+        { "id": "u-stats-prob", "title": "Statistics & Probability", "marks": 10 }
+      ],
+      "chapters": [
+        { "id": "g9-c-number-systems",        "title": "Number Systems",                      "unit": "u-number" },
+        { "id": "g9-c-polynomials",           "title": "Polynomials",                         "unit": "u-algebra" },
+        { "id": "g9-c-coordinate-geometry",   "title": "Coordinate Geometry",                 "unit": "u-coordinate" },
+        { "id": "g9-c-linear-eq-two-var",     "title": "Linear Equations in Two Variables",   "unit": "u-algebra" },
+        { "id": "g9-c-euclid-geometry",       "title": "Introduction to Euclid's Geometry",   "unit": "u-geometry" },
+        { "id": "g9-c-lines-and-angles",      "title": "Lines and Angles",                    "unit": "u-geometry" },
+        { "id": "g9-c-triangles",             "title": "Triangles",                           "unit": "u-geometry" },
+        { "id": "g9-c-quadrilaterals",        "title": "Quadrilaterals",                      "unit": "u-geometry" },
+        { "id": "g9-c-circles",               "title": "Circles",                             "unit": "u-geometry" },
+        { "id": "g9-c-herons-formula",        "title": "Heron's Formula",                     "unit": "u-mensuration" },
+        { "id": "g9-c-surface-volumes",       "title": "Surface Areas and Volumes",           "unit": "u-mensuration" },
+        { "id": "g9-c-statistics",            "title": "Statistics",                          "unit": "u-stats-prob" },
+        { "id": "g9-c-probability",           "title": "Probability",                         "unit": "u-stats-prob" }
+      ]
+    },
+
+    "8": {
+      "styles": ["mcq", "short", "long"],
+      "units_note": "no board marks at this level — units give pedagogical order only (marks: null)",
+      "units": [
+        { "id": "u-number",  "title": "Number System",  "marks": null },
+        { "id": "u-algebra", "title": "Algebra",        "marks": null },
+        { "id": "u-geometry", "title": "Geometry",      "marks": null },
+        { "id": "u-mensuration", "title": "Mensuration", "marks": null },
+        { "id": "u-data",    "title": "Data Handling",  "marks": null }
+      ],
+      "chapters": [
+        { "id": "g8-c-rational-numbers",        "title": "Rational Numbers",                    "unit": "u-number" },
+        { "id": "g8-c-linear-eq-one-var",       "title": "Linear Equations in One Variable",    "unit": "u-algebra" },
+        { "id": "g8-c-understanding-quads",     "title": "Understanding Quadrilaterals",        "unit": "u-geometry" },
+        { "id": "g8-c-data-handling",           "title": "Data Handling",                       "unit": "u-data" },
+        { "id": "g8-c-squares-square-roots",    "title": "Squares and Square Roots",            "unit": "u-number" },
+        { "id": "g8-c-cubes-cube-roots",        "title": "Cubes and Cube Roots",                "unit": "u-number" },
+        { "id": "g8-c-comparing-quantities",    "title": "Comparing Quantities",                "unit": "u-number" },
+        { "id": "g8-c-algebraic-identities",    "title": "Algebraic Expressions and Identities", "unit": "u-algebra" },
+        { "id": "g8-c-mensuration",             "title": "Mensuration",                         "unit": "u-mensuration" },
+        { "id": "g8-c-exponents-powers",        "title": "Exponents and Powers",                "unit": "u-algebra" },
+        { "id": "g8-c-direct-inverse-prop",     "title": "Direct and Inverse Proportions",      "unit": "u-number" },
+        { "id": "g8-c-factorisation",           "title": "Factorisation",                       "unit": "u-algebra" },
+        { "id": "g8-c-intro-graphs",            "title": "Introduction to Graphs",              "unit": "u-data" },
+        { "id": "g8-c-playing-with-numbers",    "title": "Playing with Numbers",                "unit": "u-number" }
+      ]
+    },
+
+    "7": {
+      "provisional_titles": true,
+      "styles": ["mcq", "short"],
+      "units": [],
+      "chapters": [
+        { "id": "g7-c-integers",           "title": "Integers" },
+        { "id": "g7-c-fractions-decimals", "title": "Fractions and Decimals" },
+        { "id": "g7-c-data-handling",      "title": "Data Handling" },
+        { "id": "g7-c-simple-equations",   "title": "Simple Equations" },
+        { "id": "g7-c-lines-angles",       "title": "Lines and Angles" },
+        { "id": "g7-c-triangle-properties", "title": "The Triangle and Its Properties" },
+        { "id": "g7-c-comparing-quantities", "title": "Comparing Quantities" },
+        { "id": "g7-c-rational-numbers",   "title": "Rational Numbers" },
+        { "id": "g7-c-perimeter-area",     "title": "Perimeter and Area" },
+        { "id": "g7-c-algebraic-expressions", "title": "Algebraic Expressions" },
+        { "id": "g7-c-exponents-powers",   "title": "Exponents and Powers" },
+        { "id": "g7-c-symmetry",           "title": "Symmetry" },
+        { "id": "g7-c-visualising-solids", "title": "Visualising Solid Shapes" }
+      ]
+    },
+
+    "6": {
+      "provisional_titles": true,
+      "styles": ["mcq", "short"],
+      "units": [],
+      "chapters": [
+        { "id": "g6-c-knowing-numbers",   "title": "Knowing Our Numbers" },
+        { "id": "g6-c-whole-numbers",     "title": "Whole Numbers" },
+        { "id": "g6-c-playing-numbers",   "title": "Playing with Numbers" },
+        { "id": "g6-c-basic-geometry",    "title": "Basic Geometric Ideas" },
+        { "id": "g6-c-elementary-shapes", "title": "Understanding Elementary Shapes" },
+        { "id": "g6-c-integers",          "title": "Integers" },
+        { "id": "g6-c-fractions",         "title": "Fractions" },
+        { "id": "g6-c-decimals",          "title": "Decimals" },
+        { "id": "g6-c-data-handling",     "title": "Data Handling" },
+        { "id": "g6-c-mensuration",       "title": "Mensuration" },
+        { "id": "g6-c-algebra",           "title": "Algebra" },
+        { "id": "g6-c-ratio-proportion",  "title": "Ratio and Proportion" }
+      ]
+    },
+
+    "5": {
+      "provisional_titles": true,
+      "styles": ["mcq"],
+      "units": [],
+      "chapters": [
+        { "id": "g5-c-numbers",      "title": "Numbers and Operations" },
+        { "id": "g5-c-shapes",       "title": "Shapes and Angles" },
+        { "id": "g5-c-parts-wholes", "title": "Parts and Wholes (Fractions)" },
+        { "id": "g5-c-multiples",    "title": "Multiples and Factors" },
+        { "id": "g5-c-patterns",     "title": "Patterns" },
+        { "id": "g5-c-measurement",  "title": "Measurement and Area" },
+        { "id": "g5-c-data",         "title": "Data Handling" }
+      ]
+    }
+  }
+}
