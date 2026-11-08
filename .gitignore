@@ -1,0 +1,15 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets — never commit
+.env
+
+# Local databases
+data/
+
+# OS noise
+.DS_Store
+Thumbs.db

@@ -1,0 +1,27 @@
+# Web framework + ASGI server
+fastapi
+uvicorn[standard]
+
+# Agent framework (P4+): explicit StateGraph, tool node, checkpointing
+langgraph
+langgraph-checkpoint-sqlite
+
+# LangChain core (message types, tool decorators, chat-model interface)
+# + provider integrations. Two providers on purpose: Gemini free tier is
+# primary, Groq free tier is the quota-failure fallback (see app/config.py).
+langchain-core
+langchain-google-genai
+langchain-groq
+
+# Env file loading
+python-dotenv
+
+# Data validation (quiz schemas, structured LLM outputs)
+pydantic
+
+# Symbolic math — powers quiz answer verification ("compute, don't trust")
+sympy
+
+# Dev
+pytest
+httpx
