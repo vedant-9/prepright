@@ -35,8 +35,8 @@ _QUOTA_HINTS = ("quota", "rate limit", "429", "resource_exhausted", "too many re
 
 
 @lru_cache(maxsize=4)
-def get_chat_model(provider: str | None = None) -> BaseChatModel:
-    """Build (and memoize) a chat model for the requested provider.
+def get_chat_model(provider: str | None = None, model: str | None = None) -> BaseChatModel:
+    """Build (and memoize) a chat model; `model` overrides config (fallback chain).
 
     lru_cache: model clients are cheap but not free to construct, and are
     safe to reuse across requests. One instance per provider config.
@@ -48,7 +48,7 @@ def get_chat_model(provider: str | None = None) -> BaseChatModel:
         from langchain_google_genai import ChatGoogleGenerativeAI
 
         return ChatGoogleGenerativeAI(
-            model=settings.gemini_model,
+            model=model or settings.gemini_model,
             api_key=settings.gemini_api_key,   # explicit, not env-sniffing
             temperature=0.7,                   # tutoring wants warmth; quizzes use structured output anyway
         )
@@ -56,7 +56,7 @@ def get_chat_model(provider: str | None = None) -> BaseChatModel:
         from langchain_groq import ChatGroq
 
         return ChatGroq(
-            model=settings.groq_model,
+            model=model or settings.groq_model,
             api_key=settings.groq_api_key,
             temperature=0.7,
         )
