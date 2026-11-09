@@ -35,6 +35,9 @@ class Settings:
     #    3.5-flash measured 1.1s. Benchmark before choosing.
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
     groq_model: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    # Same-provider fallback: Groq rate limits are PER-MODEL, so a second
+    # Groq model has its own quota bucket (P9.3 availability fix).
+    groq_fallback_model: str = os.getenv("GROQ_FALLBACK_MODEL", "openai/gpt-oss-20b")
 
     # Embeddings (RAG, P8): free tier, embedded ONCE and disk-cached.
     gemini_embedding_model: str = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
