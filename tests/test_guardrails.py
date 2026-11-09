@@ -122,6 +122,21 @@ def test_pure_chitchat_has_no_math_evidence():
     assert has_math_evidence("tell me a joke") is False
 
 
+# ---- kid typos must not be refused (P9.4: found live - "start quizz") ----
+
+def test_typo_quizz_passes_evidence():
+    # the exact regression from the user's live test
+    assert has_math_evidence("start quizz") is True
+    assert is_off_topic("start quizz") is False
+
+
+def test_common_misspellings_pass_evidence():
+    assert has_math_evidence("teach me algerbra") is True     # stem: algebr
+    assert has_math_evidence("help me with factorising") is True  # factori
+    assert has_math_evidence("i want to practise trig") is True    # practis/trig
+    assert has_math_evidence("revise quadritic equations") is True  # revis/quadrat/equat
+
+
 def test_pure_off_topic_still_blocked_by_embeddings():
     # no evidence -> embedding layer decides; chit-chat scores ~0.575 live
     assert is_off_topic("who is modi", top_score=0.575) is True

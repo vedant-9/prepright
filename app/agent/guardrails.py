@@ -49,16 +49,25 @@ OFF_TOPIC_THRESHOLD = 0.62
 # above the threshold by luck. When hard math evidence exists we never
 # classify off-topic: refusing a student's real math question is the worst
 # failure mode, so evidence overrides embeddings every time.
+#
+# P9.4 HARDENING - STEM MATCHING: kids typo constantly. Whole-word
+# matching (\bquiz\b) refused "start quizz" - exactly the right request,
+# spelled slightly wrong. Stems (quiz -> quizz/quizzes, factori ->
+# factorise/factoring/factorization) catch typos and inflections. Short
+# ambiguous stems (mean, mode, tan, test, sin, cos) keep their \b.
+# Failure direction is deliberate: a false positive reaches the model,
+# which politely steers - a false negative refuses a real question.
 MATH_EVIDENCE_RE = re.compile(
     r"(\d\s*[+\-x×*/÷^]\s*\d)"          # arithmetic: 5 * 3, 12+7, x^2
     r"|(\d+\s*%)"                        # percentages
     r"|(=\s*\d|\d\s*=)"                  # equations: = 5
-    r"|\b(solve|equation|quadratic|factoris|factoriz|fraction|decimal|"
-    r"hcf|lcm|gcd|percentage|probability|trigonometr|sin|cos|tan|"
-    r"polynomial|algebra|geometry|triangle|circle|angle|area|volume|"
-    r"perimeter|mean|median|mode|statistics|graph|theorem|root|"
-    r"arithmetic|progression|square root|cube|prime|ratio|proportion|"
-    r"integer|rational number|chapter|quiz|practice|revise|worksheet)\b",
+    r"|\b(solv|equat|quadrat|factori|factoriz|fract|decimal|"
+    r"hcf|lcm|gcd|percent|probab|trig|sin\b|cos\b|tan\b|"
+    r"polynom|algebr|geometr|triangl|circl|angl|area|volume|"
+    r"perimeter|mean\b|median|mode\b|statist|graph|theorem|root\b|"
+    r"arithmetic|progress|square root|cube\b|prime\b|ratio|proportion|"
+    r"integer|rational|chapter|quiz|practic|practis|revis|worksheet|"
+    r"learn|teach|concept|test\b|exam\b)",
     re.IGNORECASE)
 
 
