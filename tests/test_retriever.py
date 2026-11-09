@@ -1,4 +1,4 @@
-"""P8: retriever tests - deterministic, no network.
+"""retriever tests - deterministic, no network.
 
 Semantic mode is tested by INJECTING vectors (the retrieve() parameters),
 so the math (cosine ordering) is verified without any embedding API call.

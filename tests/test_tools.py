@@ -1,4 +1,4 @@
-"""P9.1: tool argument clamp tests - the model supplies parameters,
+"""tool argument clamp tests - the model supplies parameters,
 so every numeric arg that crosses the model->tool boundary must be
 clamped before it can burn quota or poison mastery data."""
 

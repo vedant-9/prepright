@@ -1,4 +1,4 @@
-"""P9: guardrail tests - the kid-safety floor, deterministically proven.
+"""guardrail tests - the kid-safety floor, deterministically proven.
 
 The guardrail is the layer that must NEVER regress silently; these tests
 pin its exact behavior including the word-boundary subtleties.
@@ -62,7 +62,7 @@ def test_refusal_is_safe_and_redirects():
     assert "maths" in SAFE_REFUSAL.lower() and "chapter" in SAFE_REFUSAL.lower()
 
 
-# ---- off-topic screen (P9.6: LLM classifier behind regex fast-pass) ------
+# ---- off-topic screen ------
 
 from app.agent import guardrails as gd  # noqa: E402
 from app.agent.guardrails import is_off_topic  # noqa: E402
@@ -124,7 +124,7 @@ def test_pure_chitchat_has_no_math_evidence():
     assert has_math_evidence("tell me a joke") is False
 
 
-# ---- kid typos must not be refused (P9.4: found live - "start quizz") ----
+# ---- kid typos must not be refused ----
 
 def test_typo_quizz_passes_evidence():
     # the exact regression from the user's live test

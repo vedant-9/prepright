@@ -28,7 +28,7 @@ class Settings:
     groq_api_key: str = os.getenv("GROQ_API_KEY", "")
 
     # Flash-tier models: cheap + fast, plenty for a tutoring agent.
-    # TWO real-world lessons baked in (both hit during P2/P4):
+    # TWO real-world lessons baked in (both hit during /):
     # 1. Model IDs get RETIRED (gemini-2.0-flash 404'd mid-project).
     # 2. Same tier family, wildly different latency: 3.8-flash took
     #    50-120s to first token (thinking + free-tier queueing);
@@ -36,15 +36,15 @@ class Settings:
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
     groq_model: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
     # Same-provider fallback: Groq rate limits are PER-MODEL, so a second
-    # Groq model has its own quota bucket (P9.3 availability fix).
+    # Groq model has its own quota bucket.
     groq_fallback_model: str = os.getenv("GROQ_FALLBACK_MODEL", "openai/gpt-oss-20b")
 
-    # Embeddings (RAG, P8): free tier, embedded ONCE and disk-cached.
+    # Embeddings (RAG, ): free tier, embedded ONCE and disk-cached.
     gemini_embedding_model: str = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
 
     # --- Runtime flags ----------------------------------------------------
     # DEMO_MODE=true serves cached/replayed responses so live demos and
-    # the pilot never die on an API quota error (P5+ implement this).
+    # the pilot never die on an API quota error.
     demo_mode: bool = os.getenv("DEMO_MODE", "false").lower() == "true"
 
 

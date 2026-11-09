@@ -1,6 +1,6 @@
-"""Quiz tools (P5): generation, grading - the compute-don't-trust pipeline.
+"""Quiz tools: generation, grading - the compute-don't-trust pipeline.
 
-HOW TOOL CALLING WORKS (wired into the graph in P6):
+HOW TOOL CALLING WORKS (wired into the graph in ):
 The model never runs these. It emits a tool_call (name + JSON args);
 LangGraph's ToolNode executes the matching function and hands the result
 back as a ToolMessage. These @tool definitions are simultaneously:
@@ -132,7 +132,7 @@ def generate_quiz_core(chapter_id: str, difficulty: int = 2, n: int = 5) -> dict
 
 
 # ---------------------------------------------------------------- the tools
-# Docstrings are the model's instructions in P6 - write them for the LLM
+# Docstrings are the model's instructions in  - write them for the LLM
 # to act on, not for human developers only.
 
 @tool

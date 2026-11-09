@@ -1,4 +1,4 @@
-"""Compute-don't-trust verification (P5) - the heart of PrepRight.
+"""Compute-don't-trust verification - the heart of PrepRight.
 
 THE INVERSION (why this file exists):
 LLMs hallucinate arithmetic. A tutoring app that serves a wrong answer key

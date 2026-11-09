@@ -1,4 +1,4 @@
-"""P9: agent graph tests with a FAKE model - deterministic, no network.
+"""agent graph tests with a FAKE model - deterministic, no network.
 
 The point: the graph's ROUTING (guardrail pass/block, tool_call branch,
 loop, cap) is OUR code and must be testable without Gemini. The fake model
@@ -96,7 +96,7 @@ def test_unknown_tool_name_becomes_error_result_not_crash():
 def test_loop_cap_stops_a_model_stuck_requesting_tools():
     # unique tool_call ids per round: LangGraph's message reducer treats
     # duplicate ids as the SAME message (update, not append) - real models
-    # always emit unique ids, and so must the fake (found the hard way).
+    # always emit unique ids, and so must the fake (
     def stuck(n):
         return AIMessage(content="", tool_calls=[
             {"name": "grade_answer", "args": {"answer_index": 0, "correct_index": 0},

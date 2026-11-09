@@ -91,7 +91,7 @@ _looks_like_quota_error = is_quota_error
 def extract_text(content: object) -> str:
     """Normalize AIMessage.content to a plain string.
 
-    REAL-WORLD LESSON (hit in P2 testing): `.content` is NOT always a str.
+    REAL-WORLD LESSON (hit in  testing): `.content` is NOT always a str.
     Gemini 3.x returns a list of content blocks
     ([{'type': 'text', 'text': ..., 'extras': ...}]); other providers
     return plain strings. Callers shouldn't care — the LLM layer's job
@@ -132,11 +132,11 @@ def generate_structured(schema: Type[T], messages: list[BaseMessage]) -> T:
     native JSON-schema mode on (Gemini: response_schema; Groq: tool
     calling) — the model is *forced* to emit schema-conforming JSON,
     so downstream code never parses free text. This is what makes
-    quiz generation (P5) reliable.
+    quiz generation reliable.
 
-    Quota fallback (added in P5): quiz generation is the app's most
+    Quota fallback (added in ): quiz generation is the app's most
     important structured call - it gets the same one-shot provider
-    fallback as chat(), closing the gap noted in the P2 review.
+    fallback as chat(), closing the gap noted in the  review.
     """
     try:
         return get_chat_model().with_structured_output(schema).invoke(messages)

@@ -1,6 +1,6 @@
 /* PrepRight chat client — vanilla JS, no dependencies.
  *
- * STATE MODEL (P6): the SERVER owns conversation history (LangGraph
+ * STATE MODEL: the SERVER owns conversation history (LangGraph
  * checkpointer, one thread per student). We send only the NEW message and
  * render whatever streams back. Note: visible bubbles reset on reload,
  * but the tutor's memory does not - it resumes from the checkpoint.
@@ -88,7 +88,7 @@ function renderRich(text) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
-  // LaTeX scrub (P9): models break the no-LaTeX contract occasionally;
+  // LaTeX scrub: models break the no-LaTeX contract occasionally;
   // the renderer de-Latex-ifies so the student never sees \( \) garbage.
   t = t
     .replace(/\\\[|\\\]|\\\(|\\\)/g, "")          // \( \) \[ \] delimiters
@@ -217,7 +217,7 @@ function setStreaming(on) {
   if (!on) els.input.focus();
 }
 
-// ---------- quiz cards (P7 single + P9.1 batch) ------------------------
+// ---------- quiz cards ------------------------
 // After a reply finishes:
 // - ONE question with options  -> instant-feedback card (learn mode):
 //   tap an option -> sends that letter -> graded -> coaching streams back
@@ -352,7 +352,7 @@ function parseOptions(text) {
   return opts;
 }
 
-// Structured quiz (P9.1): server-sent questions rendered directly - the
+// Structured quiz: server-sent questions rendered directly - the
 // model never retypes them, so hallucinated/reformatted quizzes are
 // structurally impossible.
 function renderStructuredQuiz(quiz) {

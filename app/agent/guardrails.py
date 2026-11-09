@@ -10,7 +10,7 @@ DESIGN NOTES:
    Smarter classification can later be a cheap model call on top - the
    deterministic floor stays (belt and suspenders).
 
-OFF-TOPIC SCREEN (P9.6): two layers, each doing only what it is good at.
+OFF-TOPIC SCREEN: two layers, each doing only what it is good at.
 1. REGEX FAST-PASS (instant, typo-tolerant stems): math evidence means
    NEVER off-topic. This list is hardcoded ON PURPOSE and is safe to be
    incomplete - a missing stem only falls through to layer 2, never
@@ -49,12 +49,12 @@ OFF_TOPIC_REPLY = ("That's outside maths, so it's not something I can help with 
 
 OFF_TOPIC_THRESHOLD = 0.62  # legacy: embeddings threshold, kept for reference
 
-# MATH EVIDENCE (deterministic override, P9.1): mixed messages like
+# MATH EVIDENCE (deterministic override, ): mixed messages like
 # "who is modi and what is 5 * 3 ?" must never be refused. When hard math
 # evidence exists we never classify off-topic: refusing a student's real
 # math question is the worst failure mode.
 #
-# P9.4 HARDENING - STEM MATCHING: kids typo constantly. Whole-word
+#  HARDENING - STEM MATCHING: kids typo constantly. Whole-word
 # matching (\bquiz\b) refused "start quizz" - exactly the right request,
 # spelled slightly wrong. Stems (quiz -> quizz/quizzes, factori ->
 # factorise/factoring/factorization) catch typos and inflections. Short

@@ -2,7 +2,7 @@
 
 APIRouter (instead of stuffing routes into main.py) keeps main.py a
 composition root: it wires apps together, it doesn't define behavior.
-As endpoints grow (chat in P4, reports in P10), each gets its own module.
+As endpoints grow (chat in , reports in ), each gets its own module.
 """
 
 from fastapi import APIRouter, HTTPException
@@ -36,7 +36,7 @@ class StudentOut(BaseModel):
 
 @router.post("/students", response_model=StudentOut, status_code=201)
 def create_student(body: StudentIn) -> StudentOut:
-    """Onboarding: create the learner. One row per kid; the chat (P4) keys
+    """Onboarding: create the learner. One row per kid; the chat keys
     conversation state to this id."""
     with get_conn() as conn:
         cur = conn.execute(
@@ -67,7 +67,7 @@ def get_student(student_id: int) -> StudentOut:
 def get_curriculum(grade: int) -> dict:
     """Chapters for a grade, enriched with unit marks (the 'what matters most'
     signal). Serves the onboarding UI and doubles as the template for the
-    agent's get_curriculum tool (P5)."""
+    agent's get_curriculum tool."""
     chapters = curriculum.get_chapters(grade)
     if not chapters:
         raise HTTPException(status_code=404, detail=f"no curriculum for grade {grade}")

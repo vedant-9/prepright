@@ -1,8 +1,8 @@
 """FastAPI entrypoint.
 
-MINIMAL ON PURPOSE (P1.2): just health check + startup DB init, so the repo
+MINIMAL ON PURPOSE: just health check + startup DB init, so the repo
 is runnable and every future piece has a boot check. The real endpoints
-arrive piece by piece: /api/students (P3), /api/chat (P4), /api/report (P10).
+arrive piece by piece: /api/students, /api/chat, /api/report.
 
 Run:  .venv/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000
 """
@@ -19,8 +19,8 @@ from app.api.chat import router as chat_router
 from app.api.students import router as students_router
 from app.data.db import init_db
 
-# Make prepright.* loggers visible in the console (found the hard way in
-# P9.3: warnings fired into a void because nothing configured the root
+# Make prepright.* loggers visible in the console (
+# warnings fired into a void because nothing configured the root
 # logger - "why is the error not logged" had TWO answers: nothing called
 # log in the failing path, AND no handler was configured).
 logging.basicConfig(level=logging.INFO,
@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="PrepRight", version="0.1.0", lifespan=lifespan)
 
 
-# Standard liveness probe (HF Spaces deploy + uptime checks in P11).
+# Standard liveness probe (HF Spaces deploy + uptime checks in ).
 @app.get("/healthz")
 def healthz() -> dict:
     return {"status": "ok", "app": "prepright"}

@@ -3,7 +3,7 @@
 DATA MODEL (why it looks like this):
 - Marks weightage hangs on UNITS, not chapters — CBSE publishes "Algebra: 20
   marks", never per-chapter marks. Chapter-level weightage would be fabricated
-  data; unit-level is sourced fact. PrepScore (P10) therefore computes over
+  data; unit-level is sourced fact. PrepScore therefore computes over
   units (chapter mastery aggregates into its unit).
 - The file is versioned (version / source / last_verified). A syllabus change
   = edit JSON + bump version. No code, no deploy.
@@ -29,7 +29,7 @@ def load() -> dict:
 def _validate(data: dict) -> None:
     """Fail fast at startup on data typos (e.g. chapter pointing at a missing unit).
 
-    Cheap insurance: the agent (P5+) will pass chapter ids to tools — a bad
+    Cheap insurance: the agent will pass chapter ids to tools — a bad
     reference in data would surface as confusing runtime errors otherwise.
     """
     for grade, spec in data["grades"].items():
@@ -50,7 +50,7 @@ def get_chapters(grade: int) -> list[dict]:
     """Chapters for a grade, each enriched with its unit's marks (null if none).
 
     This enriched view is what the API serves and the agent's
-    get_curriculum tool (P5) will use to prioritize practice.
+    get_curriculum tool will use to prioritize practice.
     """
     spec = get_grade(grade)
     if spec is None:
