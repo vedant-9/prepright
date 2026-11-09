@@ -13,6 +13,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from app.agent.graph import init_graph
 from app.api.chat import router as chat_router
 from app.api.students import router as students_router
 from app.data.db import init_db
@@ -29,6 +30,7 @@ from app.data.db import init_db
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    await init_graph()  # async checkpointer must enter inside the event loop
     yield
 
 

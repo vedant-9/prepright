@@ -25,3 +25,4 @@ sympy
 # Dev
 pytest
 httpx
+aiosqlite
