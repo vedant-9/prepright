@@ -87,6 +87,17 @@ main {
 .msg code { background: rgba(0,0,0,0.3); padding: 0 4px; border-radius: 4px; font-family: Consolas, monospace; }
 .msg strong { font-weight: 700; color: var(--accent); }
 
+/* tool activity chips (P6): shown while the agent runs a tool */
+.msg.tool-chip {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.85rem;
+  padding: 6px 12px;
+}
+
 .status { color: var(--muted); font-style: italic; padding: 0 4px; }
 
 #composer { display: flex; gap: 8px; }

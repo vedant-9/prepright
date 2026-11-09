@@ -1,10 +1,18 @@
 /* PrepRight chat client — vanilla JS, no dependencies.
  *
- * STATE MODEL (thin slice): the browser owns the conversation history
- * (`messages` array below) and sends the FULL history with every request.
- * The server is stateless. P6 flips this: state moves server-side into
- * LangGraph checkpoints and we send only the new message.
+ * STATE MODEL (P6): the SERVER owns conversation history (LangGraph
+ * checkpointer, one thread per student). We send only the NEW message and
+ * render whatever streams back. Note: visible bubbles reset on reload,
+ * but the tutor's memory does not - it resumes from the checkpoint.
  */
+
+const TOOL_LABELS = {
+  generate_quiz: "Generating a verified quiz...",
+  get_curriculum: "Checking your syllabus...",
+  get_student_profile: "Reviewing your progress...",
+  record_progress: "Saving your progress...",
+  grade_answer: "Checking your answer...",
+};
 
 const els = {
   onboarding: document.getElementById("onboarding"),
@@ -23,7 +31,6 @@ const els = {
 
 let studentId = null;
 let studentName = "";
-let messages = []; // [{role: 'user'|'assistant', content: '...'}]
 let streaming = false;
 
 // ---------- onboarding ----------
@@ -65,7 +72,6 @@ els.obForm.onsubmit = async (e) => {
 function enterChat(id, name) {
   studentId = id;
   studentName = name;
-  messages = [];
   els.messages.innerHTML = "";
   els.chat.classList.remove("hidden");
   addAi(`Hi ${studentName}! I'm PrepRight, your math buddy. ` +
@@ -102,25 +108,34 @@ function bubble(role, text = "") {
 const addUser = (t) => bubble("user", t);
 const addAi = (t) => bubble("ai", t);
 
+function addToolChip(toolName) {
+  const div = document.createElement("div");
+  div.className = "msg ai tool-chip";
+  div.textContent = TOOL_LABELS[toolName] || `Working: ${toolName}...`;
+  els.messages.appendChild(div);
+  els.messages.scrollTop = els.messages.scrollHeight;
+  return div;
+}
+
 // ---------- streaming ----------
 
 async function send() {
   const text = els.input.value.trim();
   if (!text || streaming || !studentId) return;
 
-  messages.push({ role: "user", content: text });
   addUser(text);
   els.input.value = "";
   setStreaming(true);
 
   const aiBubble = bubble("ai");
   let received = "";
+  let toolChip = null;
 
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ student_id: studentId, messages }),
+      body: JSON.stringify({ student_id: studentId, message: text }),
     });
     if (!res.ok || !res.body) throw new Error(`server ${res.status}`);
 
@@ -143,9 +158,24 @@ async function send() {
         if (!line.startsWith("data: ")) continue;
         const payload = JSON.parse(line.slice(6));
 
-        if (payload.error) throw new Error(payload.error);
+        if (payload.error) {
+          // if real content already streamed, keep it and append the warning
+          // (a late error must not wipe a good reply)
+          if (received) {
+            received += `\n\n(ended early: ${payload.error.slice(0, 80)})`;
+            aiBubble.innerHTML = renderRich(received);
+            continue;
+          }
+          throw new Error(payload.error);
+        }
         if (payload.done) continue;
+        if (payload.tool) {
+          if (toolChip) toolChip.remove();
+          toolChip = addToolChip(payload.tool);
+          continue;
+        }
         if (payload.delta) {
+          if (toolChip) { toolChip.remove(); toolChip = null; }
           received += payload.delta;
           aiBubble.innerHTML = renderRich(received);
           els.messages.scrollTop = els.messages.scrollHeight;
@@ -153,8 +183,8 @@ async function send() {
       }
     }
 
-    if (received) messages.push({ role: "assistant", content: received });
-    else aiBubble.textContent = "(no reply — try again)";
+    if (toolChip) toolChip.remove();
+    if (!received) aiBubble.textContent = "(no reply — try again)";
   } catch (err) {
     aiBubble.textContent = `⚠️ ${err.message}`;
   } finally {
