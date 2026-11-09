@@ -13,8 +13,9 @@ DESIGN NOTES:
 
 import re
 
-# Indian mobile numbers (optionally +91 prefixed), not part of longer digits
-PHONE_RE = re.compile(r"(?<!\d)(?:\+91[\s-]?)?[6-9]\d{9}(?!\d)")
+# Indian mobile numbers (optionally +91 prefixed), compact or 5+5 spaced,
+# never matching inside longer digit runs (lookarounds)
+PHONE_RE = re.compile(r"(?<!\d)(?:\+91[\s-]?)?(?:[6-9]\d{9}|[6-9]\d{4}[\s-]\d{5})(?!\d)")
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
 
 # Word-boundary matched, case-insensitive. Floor-level list; extend via

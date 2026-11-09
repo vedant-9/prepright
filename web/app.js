@@ -88,6 +88,16 @@ function renderRich(text) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+  // LaTeX scrub (P9): models break the no-LaTeX contract occasionally;
+  // the renderer de-Latex-ifies so the student never sees \( \) garbage.
+  t = t
+    .replace(/\\\[|\\\]|\\\(|\\\)/g, "")          // \( \) \[ \] delimiters
+    .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "($1)/($2)")
+    .replace(/\\sqrt\{([^{}]+)\}/g, "√($1)")
+    .replace(/\\times/g, "×").replace(/\\cdot/g, "·")
+    .replace(/\\pi/g, "π").replace(/\\leq/g, "≤").replace(/\\geq/g, "≥")
+    .replace(/\^\{([^{}]+)\}/g, "^$1")             // x^{2} -> x^2
+    .replace(/x\^2\b/g, "x²").replace(/\^2\b/g, "²");
   t = t
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
