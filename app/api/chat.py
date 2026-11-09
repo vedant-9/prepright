@@ -19,8 +19,8 @@ from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from pydantic import BaseModel, Field
 
-from app.agent import stream_tutor_reply
-from app.db import get_conn
+from app.agent.graph import stream_tutor_reply
+from app.data.db import get_conn
 
 router = APIRouter(prefix="/api", tags=["chat"])
 

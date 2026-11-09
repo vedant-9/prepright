@@ -11,7 +11,7 @@ THREE PUBLIC FUNCTIONS:
 - generate_structured()   -> schema-validated output (Pydantic in, Pydantic out)
 
 Live smoke test (needs a key in .env):
-    python -m app.llm "Reply with exactly: OK"
+    python -m app.llm.gateway "Reply with exactly: OK"
 """
 
 import logging
@@ -84,7 +84,7 @@ def _looks_like_quota_error(exc: Exception) -> bool:
     return any(hint in text for hint in _QUOTA_HINTS)
 
 
-def _extract_text(content: object) -> str:
+def extract_text(content: object) -> str:
     """Normalize AIMessage.content to a plain string.
 
     REAL-WORLD LESSON (hit in P2 testing): `.content` is NOT always a str.
@@ -111,14 +111,14 @@ def chat(messages: list[BaseMessage]) -> str:
     """
     model = get_chat_model()
     try:
-        return _extract_text(model.invoke(messages).content)
+        return extract_text(model.invoke(messages).content)
     except Exception as exc:
         fallback = _fallback_provider()
         if not _looks_like_quota_error(exc) or fallback is None:
             raise
         log.warning("primary provider (%s) hit quota: %s — falling back to %s",
                     settings.llm_provider, exc, fallback)
-        return _extract_text(get_chat_model(fallback).invoke(messages).content)
+        return extract_text(get_chat_model(fallback).invoke(messages).content)
 
 
 def generate_structured(schema: Type[T], messages: list[BaseMessage]) -> T:

@@ -23,7 +23,7 @@ DESIGN NOTES (why it looks this way):
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "prepright.db"
+DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "prepright.db"
 
 SCHEMA = """
 -- A student is created at onboarding: name, board, class.

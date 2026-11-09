@@ -8,8 +8,8 @@ As endpoints grow (chat in P4, reports in P10), each gets its own module.
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app import curriculum
-from app.db import get_conn
+from app.data import curriculum
+from app.data.db import get_conn
 
 router = APIRouter(prefix="/api", tags=["students"])
 

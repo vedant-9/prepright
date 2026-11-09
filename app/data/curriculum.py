@@ -15,7 +15,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-CURRICULUM_PATH = Path(__file__).resolve().parent.parent / "content" / "curriculum.json"
+CURRICULUM_PATH = Path(__file__).resolve().parent.parent.parent / "content" / "curriculum.json"
 
 
 @lru_cache(maxsize=1)
