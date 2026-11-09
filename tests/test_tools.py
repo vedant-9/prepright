@@ -12,8 +12,10 @@ from app.tools.progress import record_progress
 
 def test_generate_quiz_clamps_absurd_difficulty_and_n(monkeypatch):
     """difficulty=99, n=50 must clamp to 5/5 BEFORE any LLM call.
-    We stub the generator: if clamping failed, the stub would see the
-    raw values and the test fails; the stub also prevents API spend."""
+    Cache is bypassed so the stubbed generator runs; the stub records what
+    it was actually called with (and prevents API spend). Side-proof found
+    while writing this: even WITHOUT the bypass, the clamp is observable -
+    the cache hit on key (chapter,5,5) only exists because clamping fired."""
     from app.tools import quiz as quiz_mod
     seen = {}
 
@@ -23,6 +25,8 @@ def test_generate_quiz_clamps_absurd_difficulty_and_n(monkeypatch):
                  "answer_index": 0, "answer": "2", "skill": "t", "verified": True}]
 
     monkeypatch.setattr(quiz_mod, "_verified_quiz", fake_verified)
+    monkeypatch.setattr(quiz_mod.cache, "get", lambda *a: None)   # no cache hits
+    monkeypatch.setattr(quiz_mod.cache, "put", lambda *a: None)   # no writes
     out = quiz_mod.generate_quiz_core("g10-c-quadratic-eq", difficulty=99, n=50)
     assert seen == {"difficulty": 5, "n": 5}          # clamped, not trusted
     assert out["difficulty"] == 5
@@ -33,6 +37,8 @@ def test_generate_quiz_clamps_zero_upward(monkeypatch):
     seen = {}
     monkeypatch.setattr(quiz_mod, "_verified_quiz",
                         lambda c, d, n: seen.update(d=d, n=n) or [])
+    monkeypatch.setattr(quiz_mod.cache, "get", lambda *a: None)
+    monkeypatch.setattr(quiz_mod.cache, "put", lambda *a: None)
     quiz_mod.generate_quiz_core("g10-c-quadratic-eq", difficulty=0, n=0)
     assert seen == {"d": 1, "n": 1}                   # floors, not just ceilings
 
