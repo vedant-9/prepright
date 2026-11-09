@@ -108,9 +108,23 @@ def make_agent_node(model_with_tools):
     killed the whole turn. Now: primary -> on quota error, retry once on
     the fallback provider's tool-bound twin (if a fallback key exists).
     """
-    fallback_model = None
+    # MODEL-CHAIN FALLBACK (P9.3): Groq rate limits are PER-MODEL, so a
+    # second model on the same provider has its own quota bucket. Chain:
+    # primary -> same-provider smaller model -> other provider entirely.
+    fallbacks = []
+    try:
+        from app.config import settings
+        if settings.llm_provider == "groq" and settings.groq_fallback_model:
+            from langchain_groq import ChatGroq
+            fallbacks.append(ChatGroq(
+                model=settings.groq_fallback_model,
+                api_key=settings.groq_api_key,
+                temperature=0.7,
+            ).bind_tools(TOOLS))
+    except Exception:
+        pass
     if (fb := _fallback_provider()):
-        fallback_model = get_chat_model(fb).bind_tools(TOOLS)
+        fallbacks.append(get_chat_model(fb).bind_tools(TOOLS))
 
     def agent_node(state: TutorState, config: RunnableConfig):
         student = (config.get("configurable") or {}).get("student") or {}
@@ -122,16 +136,20 @@ def make_agent_node(model_with_tools):
         try:
             response = model_with_tools.invoke(messages)
         except Exception as exc:
-            # Fallback on ANY primary failure (P9.1 hardening): the original
-            # retry-only-on-quota design died when a schema-validation error
-            # hit Groq and Gemini was quota-dead in the same breath. For a
-            # kids' app, availability beats purity - but NEVER silently:
-            # every fallback is logged with both reasons.
-            if fallback_model is None:
-                raise
-            log.warning("primary model failed (%s: %s) - falling back",
-                        type(exc).__name__, str(exc)[:200])
-            response = fallback_model.invoke(messages)
+            # Try each fallback in order; log every hop; raise only if ALL die.
+            last_exc = exc
+            log.warning("primary model failed (%s: %s) - trying %d fallback(s)",
+                        type(exc).__name__, str(exc)[:200], len(fallbacks))
+            for fb_model in fallbacks:
+                try:
+                    response = fb_model.invoke(messages)
+                    break
+                except Exception as exc2:
+                    last_exc = exc2
+                    log.warning("fallback model failed too (%s: %s)",
+                                type(exc2).__name__, str(exc2)[:200])
+            else:
+                raise last_exc
         return {"messages": [response]}
 
     return agent_node
