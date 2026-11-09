@@ -1,4 +1,4 @@
-"""All agent tools, one import site for graph binding (P6).
+"""All agent tools, one import site for graph binding.
 
 The @tool docstrings are the model's instruction manual - they are part of
 the product surface, not just code comments.

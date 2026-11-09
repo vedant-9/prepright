@@ -1,4 +1,4 @@
-"""P9.3: client-facing error policy - friendly by classification.
+"""client-facing error policy - friendly by classification.
 
 Raw provider exceptions must never reach a kid's chat bubble: model names,
 quota URLs and retry timers are internal detail (and mild info-leak).

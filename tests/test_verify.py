@@ -1,7 +1,7 @@
-"""P5: pure-logic tests for the compute-don't-trust verifier.
+"""pure-logic tests for the compute-don't-trust verifier.
 
 No LLM, no network - verification must be deterministic. The LLM-facing
-parts (drafting) get fake-model tests in P9.
+parts (drafting) get fake-model tests in .
 """
 
 import sys

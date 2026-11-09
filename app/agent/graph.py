@@ -1,4 +1,4 @@
-"""The tutor agent - full edition (P6): guardrail -> agent + tool loop.
+"""The tutor agent - full edition: guardrail -> agent + tool loop.
 
 THE GRAPH (matches the 'Agent loop' diagram):
 
@@ -41,7 +41,7 @@ from app.tools import TOOLS
 TOOL_MAP = {t.name: t for t in TOOLS}
 log = logging.getLogger("prepright.agent")
 
-# Loop cap (measured in P9.1 E2E): a full quiz turn spends guardrail +
+# Loop cap (measured in  E2E): a full quiz turn spends guardrail +
 # profile/curriculum/quiz rounds + 5 batched grade_answer calls +
 # record_progress + review = ~14 super-steps. 16 leaves headroom while
 # still making runaway loops impossible.
@@ -57,7 +57,7 @@ class TutorState(MessagesState):
 # Separate database from prepright.db on purpose: these are LangGraph's
 # tables, and a framework upgrade should never touch our domain schema.
 #
-# ASYNC SAVER + STARTUP COMPILE (a P6 war story): the sync SqliteSaver
+# ASYNC SAVER + STARTUP COMPILE (a  war story): the sync SqliteSaver
 # cannot serve graph.astream() - it raised at the first request. The async
 # saver is an async context manager, so the graph now compiles ONCE at app
 # startup (see main.py lifespan -> init_graph), not at import time.
@@ -103,12 +103,12 @@ def make_agent_node(model_with_tools):
     state) so the system prompt is rebuilt fresh each request and never
     accumulates in checkpointed history.
 
-    QUOTA FALLBACK (found the hard way in P8 E2E): bind_tools().invoke()
+    QUOTA FALLBACK (
     is a different call path from chat() and had NO fallback - one 429
     killed the whole turn. Now: primary -> on quota error, retry once on
     the fallback provider's tool-bound twin (if a fallback key exists).
     """
-    # MODEL-CHAIN FALLBACK (P9.3): Groq rate limits are PER-MODEL, so a
+    # MODEL-CHAIN FALLBACK: Groq rate limits are PER-MODEL, so a
     # second model on the same provider has its own quota bucket. Chain:
     # primary -> same-provider smaller model -> other provider entirely.
     fallbacks = []
@@ -252,7 +252,7 @@ async def stream_tutor_turn(student: dict, message: str,
     }
     inputs = {"messages": [HumanMessage(content=message)]}
 
-    # OUTPUT AUDIT (P9.1): streamed tokens cannot be un-sent, so a full
+    # OUTPUT AUDIT: streamed tokens cannot be un-sent, so a full
     # output classifier on free text is a documented future piece (needs
     # buffered streaming). What we CAN do cheaply: audit the assembled
     # reply against the same blocklist as the input screen. A hit cannot
@@ -292,7 +292,7 @@ async def stream_tutor_turn(student: dict, message: str,
                         for tc in calls:
                             yield {"tool": tc["name"]}
                 if node == "tools":
-                    # STRUCTURED QUIZ DELIVERY (P9.1 architecture fix): when
+                    # STRUCTURED QUIZ DELIVERY: when
                     # generate_quiz runs, emit the quiz itself as an event.
                     # The frontend renders cards from DATA, not from model
                     # prose - the model physically cannot hallucinate or

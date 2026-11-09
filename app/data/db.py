@@ -4,7 +4,7 @@ DESIGN NOTES (why it looks this way):
 
 1. App data vs agent memory are SEPARATE databases:
    - prepright.db  -> our domain schema below (students, progress, reports)
-   - checkpoints.db -> LangGraph's conversation checkpointing (arrives in P6)
+   - checkpoints.db -> LangGraph's conversation checkpointing (arrives in )
    Rationale: the framework manages its own tables/migrations; mixing them
    with ours means a framework upgrade can silently break our data.
 
@@ -62,12 +62,12 @@ CREATE TABLE IF NOT EXISTS progress_events (
     -- Free-text diagnostic written by the agent after grading, e.g.
     -- "flips numerator/denominator when converting mixed fractions".
     -- This is what makes the next session adaptive AND gives parents
-    -- the 'struggle flags' in the dashboard (P10).
+    -- the 'struggle flags' in the dashboard.
     error_notes TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Generated weekly report cards (P10). content_json holds the full
+-- Generated weekly report cards. content_json holds the full
 -- structured report (scores + LLM narrative) so reports are immutable
 -- snapshots: regenerating a week doesn't lose what the parent saw.
 CREATE TABLE IF NOT EXISTS reports (

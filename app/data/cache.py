@@ -5,7 +5,7 @@ an in-memory cache would die with each reload. Disk survives.
 WHY NOT REDIS: a POC on a laptop gains nothing from another moving part.
 This module is the swap-in point if/when we outgrow it.
 
-Used first by quiz generation (P5): a (chapter, difficulty, style) quiz
+Used first by quiz generation: a (chapter, difficulty, style) quiz
 request is deterministic-ish, so caching kills repeat API calls —
 our main defense against free-tier quota.
 """

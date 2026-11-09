@@ -1,6 +1,6 @@
-"""SSE chat endpoint - full edition (P6): stateful via the checkpointer.
+"""SSE chat endpoint - full edition: stateful via the checkpointer.
 
-WHAT CHANGED FROM THE THIN SLICE (P4):
+WHAT CHANGED FROM THE THIN SLICE:
 - Client sends ONE new message; the graph's checkpointer restores the
   student's full history from their thread (thread_id = student-{id}).
   The old "client sends full history" contract is gone - the server no
@@ -31,7 +31,7 @@ log = logging.getLogger("prepright.chat")
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
-# CLIENT-FACING ERRORS ARE FRIENDLY BY POLICY (P9.3): raw provider
+# CLIENT-FACING ERRORS ARE FRIENDLY BY POLICY: raw provider
 # exceptions (model names, quota URLs, retry timers) are internal detail -
 # they belong in server logs, never in a kid's chat bubble. Classification
 # happens here; the browser only ever sees the friendly text.
