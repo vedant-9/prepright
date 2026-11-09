@@ -119,8 +119,8 @@ function addToolChip(toolName) {
 
 // ---------- streaming ----------
 
-async function send() {
-  const text = els.input.value.trim();
+async function send(presetText) {
+  const text = (presetText != null ? String(presetText) : els.input.value).trim();
   if (!text || streaming || !studentId) return;
 
   addUser(text);
@@ -185,6 +185,7 @@ async function send() {
 
     if (toolChip) toolChip.remove();
     if (!received) aiBubble.textContent = "(no reply — try again)";
+    else finalizeAiBubble(aiBubble, received); // maybe turn options into buttons
   } catch (err) {
     aiBubble.textContent = `⚠️ ${err.message}`;
   } finally {
@@ -198,6 +199,51 @@ function setStreaming(on) {
   els.input.disabled = on;
   els.status.classList.toggle("hidden", !on);
   if (!on) els.input.focus();
+}
+
+// ---------- quiz cards (P7) -------------------------------------------
+// After a reply finishes, if it contains "A) ... B) ... C) ... D)" option
+// lines, replace them with tappable buttons. Clicking sends the letter as
+// the chat message - identical to typing it. The ANSWER KEY never reaches
+// the browser: the model grades server-side via the grade_answer tool, so
+// a student cannot read the correct option from the page source.
+
+const OPTION_RE = /^([A-D])\)\s+(.+)$/gm;
+
+function finalizeAiBubble(div, rawText) {
+  const opts = [];
+  let m;
+  const re = new RegExp(OPTION_RE.source, "gm");
+  while ((m = re.exec(rawText)) !== null) opts.push({ letter: m[1], text: m[2] });
+  if (opts.length < 2) return; // not a quiz question -> leave as plain text
+
+  const stripped = rawText
+    .replace(new RegExp(OPTION_RE.source, "gm"), "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  div.innerHTML = renderRich(stripped);
+
+  const box = document.createElement("div");
+  box.className = "opt-box";
+  opts.forEach((o) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "opt-btn";
+    b.textContent = `${o.letter})  ${o.text}`;
+    b.addEventListener("click", () => answerQuiz(box, b, o.letter));
+    box.appendChild(b);
+  });
+  div.appendChild(box);
+  els.messages.scrollTop = els.messages.scrollHeight;
+}
+
+function answerQuiz(box, btn, letter) {
+  if (streaming) return;                 // can't answer while the tutor is typing
+  box.querySelectorAll(".opt-btn").forEach((b) => (b.disabled = true));
+  btn.classList.add("picked");
+  // send(letter) renders the student's message itself - no duplicate bubble here
+  els.input.value = "";
+  send(letter);                          // grade server-side; coaching streams back
 }
 
 els.composer.onsubmit = (e) => {
