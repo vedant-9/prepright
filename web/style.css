@@ -128,3 +128,30 @@ main {
 #composer button:disabled { opacity: 0.5; cursor: default; }
 
 .hidden { display: none !important; }
+
+/* parent dashboard */
+.gate { max-width: 380px; margin: 60px auto; padding: 24px; }
+.gate input { width: 100%; margin: 8px 0; }
+.error { color: #ff6b6b; font-size: 0.9rem; }
+.dash-actions { display: flex; gap: 8px; margin-bottom: 16px; }
+.kid-card { margin-bottom: 20px; padding: 20px; }
+.kid-head { display: flex; justify-content: space-between; align-items: center; }
+.score-ring { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+.score-ring small { font-size: 0.8rem; color: var(--muted); }
+.prepscore-bar { height: 8px; background: var(--muted); border-radius: 4px; margin: 10px 0 4px; }
+.prepscore-fill { height: 100%; background: var(--accent); border-radius: 4px; }
+.flags { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.flag { padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; }
+.flag.strong { background: rgba(63,207,142,0.15); color: #3fcf8e; }
+.flag.ok { background: rgba(139,152,179,0.15); color: #9aa7c4; }
+.flag.struggling { background: rgba(255,107,107,0.15); color: #ff6b6b; }
+.kid-actions { display: flex; gap: 8px; margin-top: 12px; }
+.report { margin-top: 16px; padding: 16px; background: var(--muted); border-radius: 8px; }
+.report h4 { margin: 0 0 8px; color: var(--accent); }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; }
+.modal .card { width: 320px; padding: 20px; }
+.modal input, .modal select { width: 100%; margin: 8px 0; }
+.muted { color: var(--muted); }
+.small { font-size: 0.8rem; }
+.ghost-btn { background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; color: var(--text); text-decoration: none; display: inline-block; cursor: pointer; font: inherit; }
+.primary { background: var(--accent); border: none; border-radius: 8px; padding: 10px; width: 100%; color: #201200; font-weight: 600; cursor: pointer; margin-top: 8px; }
