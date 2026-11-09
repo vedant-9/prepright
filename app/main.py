@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.agent.graph import init_graph
 from app.api.chat import router as chat_router
+from app.api.parent import router as parent_router
 from app.api.students import router as students_router
 from app.data.db import init_db
 
@@ -55,6 +56,7 @@ def healthz() -> dict:
 # registration order, and the "/" mount below is a catch-all —
 # anything registered after it would never be reached.
 app.include_router(students_router)
+app.include_router(parent_router)
 app.include_router(chat_router)
 
 # Serve the web UI. html=True maps "/" -> web/index.html.
