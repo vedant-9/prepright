@@ -9,6 +9,14 @@ DESIGN NOTES:
 3. Deliberately dumb: regex + word-list, zero LLM cost, no false theater.
    Smarter classification can later be a cheap model call on top - the
    deterministic floor stays (belt and suspenders).
+
+OFF-TOPIC SCREEN (P9.1): "who is modi" used to burn a full chat completion
+just to be told no. Now: the best RAG retrieval score against our PURE-MATHS
+concept corpus (embeddings are a separate tiny quota; corpus vectors are
+disk-cached) - below threshold -> canned redirect, ZERO chat tokens.
+Calibrated live: maths/study queries score >= 0.66, chit-chat <= 0.575;
+threshold 0.62 has margin on both sides. Fails OPEN if retrieval is
+unavailable: a broken classifier must never block maths teaching.
 """
 
 import re
@@ -30,6 +38,29 @@ _BLOCKED_RE = re.compile(r"\b(?:%s)\b" % "|".join(re.escape(w) for w in BLOCKED_
 SAFE_REFUSAL = ("I can only help with maths and studying - and I keep our chat "
                 "safe. Let's get back to it: which chapter shall we practice?")
 
+OFF_TOPIC_REPLY = ("That's outside maths, so it's not something I can help with - "
+                   "I'm your maths tutor! Want to learn a concept or take a "
+                   "practice quiz?")
+
+OFF_TOPIC_THRESHOLD = 0.62
+
+# MATH EVIDENCE (deterministic override, P9.1): mixed messages like
+# "who is modi and what is 5 * 3 ?" score ~0.635 on embeddings - barely
+# above the threshold by luck. When hard math evidence exists we never
+# classify off-topic: refusing a student's real math question is the worst
+# failure mode, so evidence overrides embeddings every time.
+MATH_EVIDENCE_RE = re.compile(
+    r"(\d\s*[+\-x×*/÷^]\s*\d)"          # arithmetic: 5 * 3, 12+7, x^2
+    r"|(\d+\s*%)"                        # percentages
+    r"|(=\s*\d|\d\s*=)"                  # equations: = 5
+    r"|\b(solve|equation|quadratic|factoris|factoriz|fraction|decimal|"
+    r"hcf|lcm|gcd|percentage|probability|trigonometr|sin|cos|tan|"
+    r"polynomial|algebra|geometry|triangle|circle|angle|area|volume|"
+    r"perimeter|mean|median|mode|statistics|graph|theorem|root|"
+    r"arithmetic|progression|square root|cube|prime|ratio|proportion|"
+    r"integer|rational number|chapter|quiz|practice|revise|worksheet)\b",
+    re.IGNORECASE)
+
 
 def redact_pii(text: str) -> str:
     """Strip phones/emails BEFORE anything is stored or sent to a model."""
@@ -41,3 +72,35 @@ def redact_pii(text: str) -> str:
 def is_blocked(text: str) -> bool:
     """Topic screen: True means refuse without a model call."""
     return bool(_BLOCKED_RE.search(text))
+
+
+# ---------------------------------------------------------------- off-topic
+
+def has_math_evidence(text: str) -> bool:
+    """Deterministic: symbols/operators or math vocabulary present."""
+    return bool(MATH_EVIDENCE_RE.search(text))
+
+
+def is_off_topic(text: str, *, top_score=None) -> bool:
+    """True if unrelated to maths/study -> canned redirect, zero chat tokens.
+
+    Layered decision (each layer covers the other's weakness):
+    1. MATH EVIDENCE override - explicit symbols/words mean never off-topic,
+       even inside a mixed message ("who is modi and what is 5 * 3 ?").
+    2. Embedding similarity - the whole-message retrieval score vs the pure
+       maths corpus, for fuzzy cases with no symbols ("i am confused").
+
+    Decision is separated from the signal for testability: pass top_score
+    to exercise the threshold branch deterministically.
+    """
+    if has_math_evidence(text):
+        return False
+    if top_score is not None:
+        return top_score < OFF_TOPIC_THRESHOLD
+    try:
+        from app.rag.retriever import retrieve
+        best = retrieve(text, k=1)["results"][0]["score"]
+        return best < OFF_TOPIC_THRESHOLD
+    except Exception:
+        return False  # fail open: never block teaching on a broken classifier
+

@@ -9,8 +9,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.agent.guardrails import (BLOCKED_WORDS, is_blocked, redact_pii,
-                                  SAFE_REFUSAL)
+from app.agent.guardrails import (BLOCKED_WORDS, is_blocked, OFF_TOPIC_REPLY,
+                                  redact_pii, SAFE_REFUSAL)
 
 
 # ---- PII redaction -----------------------------------------------------
@@ -60,3 +60,68 @@ def test_math_talk_passes():
 
 def test_refusal_is_safe_and_redirects():
     assert "maths" in SAFE_REFUSAL.lower() and "chapter" in SAFE_REFUSAL.lower()
+
+
+# ---- off-topic screen (P9.1) --------------------------------------------
+
+from app.agent.guardrails import (is_off_topic,  # noqa: E402
+                                  OFF_TOPIC_THRESHOLD)
+
+
+def test_off_topic_threshold_logic_math_passes():
+    # calibrated live: maths queries score >= 0.66
+    assert is_off_topic("solve for x", top_score=0.66) is False
+    assert is_off_topic("solve for x", top_score=0.90) is False
+
+
+def test_off_topic_threshold_logic_chitchat_blocked():
+    # calibrated live: chit-chat scores <= 0.575
+    assert is_off_topic("who is modi", top_score=0.575) is True
+    assert is_off_topic("tell me a joke", top_score=0.30) is True
+
+
+def test_threshold_has_margin_on_both_sides():
+    # guard against accidental recalibration squeezes
+    assert 0.575 < OFF_TOPIC_THRESHOLD < 0.66
+
+
+def test_off_topic_fails_open_on_retrieval_error(monkeypatch):
+    import app.rag.retriever as retr
+    monkeypatch.setattr(retr, "retrieve", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    assert is_off_topic("solve for x") is False
+
+
+def test_offtopic_reply_redirects_to_maths():
+    assert "maths" in OFF_TOPIC_REPLY.lower()
+
+
+# ---- mixed-intent queries (the "who is modi and what is 5 * 3" case) ----
+
+from app.agent.guardrails import has_math_evidence  # noqa: E402
+
+
+def test_mixed_message_math_evidence_overrides_embeddings():
+    # even a garbage embedding score must not refuse a real math question
+    # embedded in a mixed message (deterministic override)
+    assert is_off_topic("who is modi and what is 5 * 3 ?", top_score=0.10) is False
+
+
+def test_math_evidence_detector_symbols():
+    assert has_math_evidence("what is 5 * 3") is True
+    assert has_math_evidence("solve x^2 - 5x + 6 = 0") is True
+    assert has_math_evidence("if 12 + 7 then what?") is True
+
+
+def test_math_evidence_detector_words():
+    assert has_math_evidence("explain the HCF please") is True
+    assert has_math_evidence("can we do a practice quiz") is True
+
+
+def test_pure_chitchat_has_no_math_evidence():
+    assert has_math_evidence("who is modi") is False
+    assert has_math_evidence("tell me a joke") is False
+
+
+def test_pure_off_topic_still_blocked_by_embeddings():
+    # no evidence -> embedding layer decides; chit-chat scores ~0.575 live
+    assert is_off_topic("who is modi", top_score=0.575) is True

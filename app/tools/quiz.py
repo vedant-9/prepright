@@ -22,12 +22,14 @@ Test:  pytest tests/test_verify.py -q
 
 import json
 import random
+import re
 
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
 from app.data import cache, curriculum
+from app.data.db import get_conn
 from app.llm.gateway import generate_structured
 from app.tools.prompts import DIFFICULTY_GUIDE, SPEC_MENU
 from app.verify.math import verify_question
@@ -126,25 +128,64 @@ def generate_quiz_core(chapter_id: str, difficulty: int = 2, n: int = 5) -> dict
 # to act on, not for human developers only.
 
 @tool
-def generate_quiz(chapter_id: str, difficulty: int, n: int = 5) -> dict:
+def generate_quiz(chapter_id: str, difficulty: float = 2, n: float = 5) -> dict:
     """Generate a practice quiz for a CBSE maths chapter. Every question is
     verified: answers are computed by sympy, never by the language model.
     Use when the student should practice a chapter (they ask for practice,
     a test, or have just finished learning a topic)."""
-    return generate_quiz_core(chapter_id, difficulty, n)
+    # args arrive as JSON numbers: 2 or 2.0 - accept both, coerce to int
+    return generate_quiz_core(chapter_id, int(difficulty), int(n))
 
 
 @tool
-def grade_answer(answer_index: int, correct_index: int) -> dict:
-    """Grade one multiple-choice answer the student just submitted.
-    Returns verdict plus what to praise or fix. Call immediately after the
-    student answers a quiz question."""
+def grade_answer(answer_index: float, correct_index: float) -> dict:
+    """Grade one multiple-choice answer the student just submitted (learn
+    mode). Returns verdict plus what to praise or fix."""
+    answer_index, correct_index = int(answer_index), int(correct_index)
     ok = answer_index == correct_index
     return {
         "correct": ok,
-        # the pedagogy prompt turns this into encouragement or a targeted hint
         "guidance": "confirm warmly and advance" if ok else "reveal what was right first, then give ONE hint, not the answer",
     }
+
+
+@tool
+def grade_quiz(chapter_id: str, difficulty: float, answers: str,
+               student_id: float = 0) -> dict:
+    """Grade a completed BATCH quiz in ONE call and record progress.
+    answers = the student's line like "1:A 2:C 3:B 4:A 5:D". Pass the SAME
+    chapter_id and difficulty used for generate_quiz. Returns score and
+    per-question verdicts - narrate the review from this result. Never call
+    record_progress after grade_quiz (it already did)."""
+    quiz = generate_quiz_core(chapter_id, int(difficulty), 5)  # cache hit -> same quiz
+    if "questions" not in quiz:
+        return {"error": "quiz not found for that chapter/difficulty"}
+
+    picked = {}
+    for num, letter in re.findall(r"(\d+)\s*[:\-.]?\s*([A-Da-d])", answers):
+        picked[int(num)] = letter.upper()
+
+    verdicts, correct_count = [], 0
+    for i, q in enumerate(quiz["questions"], start=1):
+        letter = picked.get(i)
+        chosen_idx = "ABCD".index(letter) if letter in ("A", "B", "C", "D") else None
+        ok = chosen_idx == q["answer_index"]
+        correct_count += ok
+        verdicts.append({
+            "question": i,
+            "chosen": letter or "(skipped)",
+            "correct": ok,
+            "right_option": q["options"][q["answer_index"]],
+        })
+
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO progress_events (student_id, chapter_id, difficulty, correct, total) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (int(student_id), chapter_id, int(difficulty),
+             correct_count, len(quiz["questions"])),
+        )
+    return {"score": f"{correct_count}/{len(quiz['questions'])}", "verdicts": verdicts}
 
 
 # ---------------------------------------------------------------- demo CLI
