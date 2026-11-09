@@ -1,0 +1,20 @@
+{
+  "note": "Golden set for retrieval eval: query -> the concept card that MUST appear in top-3. One query per card = full corpus coverage.",
+  "cases": [
+    {"query": "how do I factorise a quadratic", "expected": "cc-quadratic-factorisation"},
+    {"query": "two dice probability", "expected": "cc-probability-basic"},
+    {"query": "HCF and LCM by primes", "expected": "cc-real-numbers-hcf-lcm"},
+    {"query": "distance between two points", "expected": "cc-coordinate-distance"},
+    {"query": "similar triangles AA SSS", "expected": "cc-triangle-similarity"},
+    {"query": "mean of grouped data", "expected": "cc-statistics-mean"},
+    {"query": "square root of 324", "expected": "cc-square-roots"},
+    {"query": "percentage increase and decrease", "expected": "cc-percentages-change"},
+    {"query": "solve 3x + 5 = 20", "expected": "cc-linear-one-var"},
+    {"query": "adding fractions", "expected": "cc-rational-numbers-ops"},
+    {"query": "nth term of an AP", "expected": "cc-ap-nth-term"},
+    {"query": "zeroes of polynomial sum and product", "expected": "cc-polynomials-zeroes"},
+    {"query": "what is the discriminant", "expected": "cc-quadratic-discriminant"},
+    {"query": "sin cos tan ratios", "expected": "cc-trig-ratios"},
+    {"query": "substitution elimination two equations", "expected": "cc-linear-eqs-elimination"}
+  ]
+}

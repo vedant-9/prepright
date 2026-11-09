@@ -156,8 +156,10 @@ def route_after_agent(state: TutorState) -> str:
     return "tools" if getattr(last, "tool_calls", None) else END
 
 
-def _build_graph(checkpointer):
-    model_with_tools = get_chat_model().bind_tools(TOOLS)
+def _build_graph(checkpointer, model_with_tools=None):
+    # model injectable for deterministic fake-model tests (test_agent.py)
+    if model_with_tools is None:
+        model_with_tools = get_chat_model().bind_tools(TOOLS)
 
     graph = StateGraph(TutorState)
     graph.add_node("guardrail", guardrail_node)
