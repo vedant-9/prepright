@@ -129,8 +129,20 @@ def generate_structured(schema: Type[T], messages: list[BaseMessage]) -> T:
     calling) — the model is *forced* to emit schema-conforming JSON,
     so downstream code never parses free text. This is what makes
     quiz generation (P5) reliable.
+
+    Quota fallback (added in P5): quiz generation is the app's most
+    important structured call - it gets the same one-shot provider
+    fallback as chat(), closing the gap noted in the P2 review.
     """
-    return get_chat_model().with_structured_output(schema).invoke(messages)
+    try:
+        return get_chat_model().with_structured_output(schema).invoke(messages)
+    except Exception as exc:
+        fallback = _fallback_provider()
+        if not _looks_like_quota_error(exc) or fallback is None:
+            raise
+        log.warning("primary provider (%s) hit quota on structured call: %s — falling back to %s",
+                    settings.llm_provider, exc, fallback)
+        return get_chat_model(fallback).with_structured_output(schema).invoke(messages)
 
 
 if __name__ == "__main__":
