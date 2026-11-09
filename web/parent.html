@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PrepRight — Parent Dashboard</title>
+  <link rel="stylesheet" href="style.css?v=13" />
+</head>
+<body>
+  <header>
+    <div class="brand">Prep<span>Right</span> <small class="muted">Parent</small></div>
+    <a href="/" class="ghost-btn">← Kid mode</a>
+  </header>
+
+  <!-- STEP 1: parent login -->
+  <div id="gate" class="gate card">
+    <h2>Parent access</h2>
+    <p class="muted">Kids study freely; this area is PIN-protected.</p>
+    <form id="login-form">
+      <input id="parent-name" placeholder="Your name (first time? just type it)" maxlength="60" />
+      <input id="parent-pin" placeholder="4-digit PIN" inputmode="numeric" maxlength="4" required />
+      <button type="submit" class="primary">Enter</button>
+    </form>
+    <p id="gate-error" class="error hidden"></p>
+  </div>
+
+  <!-- STEP 2: dashboard -->
+  <main id="dash" class="hidden">
+    <div class="dash-actions">
+      <button id="add-kid-btn" class="ghost-btn">+ Add kid</button>
+      <button id="refresh-btn" class="ghost-btn">Refresh</button>
+    </div>
+    <div id="kids"></div>
+  </main>
+
+  <!-- add-kid modal -->
+  <div id="kid-modal" class="modal hidden">
+    <div class="card">
+      <h3>New kid profile</h3>
+      <form id="kid-form">
+        <input id="kid-name" placeholder="Name" maxlength="40" required />
+        <select id="kid-grade"><option value="8">Class 8</option><option value="9">Class 9</option><option value="10" selected>Class 10</option></select>
+        <button type="submit" class="primary">Create</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="parent.js?v=13"></script>
+</body>
+</html>
