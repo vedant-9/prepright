@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "cache"
+CACHE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "cache"
 
 
 def _cache_path(key: str) -> Path:

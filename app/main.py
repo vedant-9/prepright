@@ -13,9 +13,9 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.chat_api import router as chat_router
-from app.db import init_db
-from app.students_api import router as students_router
+from app.api.chat import router as chat_router
+from app.api.students import router as students_router
+from app.data.db import init_db
 
 
 # `lifespan` is the modern startup/shutdown hook (FastAPI's older
