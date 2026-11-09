@@ -98,6 +98,22 @@ main {
   padding: 6px 12px;
 }
 
+/* quiz option buttons (P7) */
+.opt-box { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.opt-btn {
+  text-align: left;
+  background: #141b2c;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+.opt-btn:hover:not(:disabled) { border-color: var(--accent); }
+.opt-btn:disabled { opacity: 0.5; cursor: default; }
+.opt-btn.picked { border-color: var(--accent); background: rgba(255,184,77,0.12); opacity: 1; }
+
 .status { color: var(--muted); font-style: italic; padding: 0 4px; }
 
 #composer { display: flex; gap: 8px; }
