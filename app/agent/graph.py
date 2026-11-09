@@ -115,12 +115,8 @@ def make_agent_node(model_with_tools):
     try:
         from app.config import settings
         if settings.llm_provider == "groq" and settings.groq_fallback_model:
-            from langchain_groq import ChatGroq
-            fallbacks.append(ChatGroq(
-                model=settings.groq_fallback_model,
-                api_key=settings.groq_api_key,
-                temperature=0.7,
-            ).bind_tools(TOOLS))
+            fallbacks.append(
+                get_chat_model("groq", settings.groq_fallback_model).bind_tools(TOOLS))
     except Exception:
         pass
     if (fb := _fallback_provider()):
