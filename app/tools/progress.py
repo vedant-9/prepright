@@ -11,11 +11,16 @@ def record_progress(student_id: float, chapter_id: str, difficulty: float,
     """Append a practice result to the student's mastery history. Call once
     per completed quiz. error_notes: one short diagnostic line describing the
     mistake pattern you observed (e.g. 'sign errors when factoring')."""
+    # output-side guardrail: the MODEL supplies these numbers - clamp them
+    # so a hallucinated total=999 can never poison mastery/PrepScore
+    difficulty = max(1, min(int(difficulty), 5))
+    total = max(1, min(int(total), 50))
+    correct = max(0, min(int(correct), total))
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO progress_events (student_id, chapter_id, difficulty, correct, total, error_notes) "
             "VALUES (?, ?, ?, ?, ?, ?)",
-            (int(student_id), chapter_id, int(difficulty), int(correct), int(total), error_notes or None),
+            (int(student_id), chapter_id, difficulty, correct, total, error_notes or None),
         )
     return {"recorded": True}
 
