@@ -115,7 +115,9 @@ def generate_quiz_core(chapter_id: str, difficulty: int = 2, n: int = 5) -> dict
         return {"error": f"unknown chapter_id: {chapter_id}"}
 
     key = cache.make_key("quiz", chapter_id, difficulty, n)
-    if (hit := cache.get(key)) is not None:
+    # 24h TTL: instant repeats within a day, fresh questions daily -
+    # caching forever would mean a kid memorises one quiz per chapter
+    if (hit := cache.get(key, ttl_seconds=24 * 3600)) is not None:
         return hit
 
     questions = _verified_quiz(chapter, difficulty, n)
