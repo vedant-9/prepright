@@ -36,6 +36,9 @@ class Settings:
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
     groq_model: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
+    # Embeddings (RAG, P8): free tier, embedded ONCE and disk-cached.
+    gemini_embedding_model: str = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
+
     # --- Runtime flags ----------------------------------------------------
     # DEMO_MODE=true serves cached/replayed responses so live demos and
     # the pilot never die on an API quota error (P5+ implement this).

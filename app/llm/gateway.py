@@ -72,7 +72,7 @@ def _fallback_provider() -> str | None:
     return None
 
 
-def _looks_like_quota_error(exc: Exception) -> bool:
+def is_quota_error(exc: Exception) -> bool:
     """
     Honest engineering note: matching on message text is pragmatic, not
     elegant — provider exception classes rename/move between SDK versions
@@ -82,6 +82,10 @@ def _looks_like_quota_error(exc: Exception) -> bool:
     """
     text = str(exc).lower()
     return any(hint in text for hint in _QUOTA_HINTS)
+
+
+# internal alias (older call sites)
+_looks_like_quota_error = is_quota_error
 
 
 def extract_text(content: object) -> str:

@@ -1,0 +1,170 @@
+{
+  "note": "Concept cards: our own explanations, linked to curriculum chapters. This is the RAG corpus - the tutor teaches FROM these, not from model memory.",
+  "cards": [
+    {
+      "id": "cc-real-numbers-hcf-lcm",
+      "chapter_id": "g10-c-real-numbers",
+      "title": "Real Numbers: HCF and LCM by Prime Factorisation",
+      "explanation": "Every number above 1 breaks into a product of primes. HCF takes the SMALLEST power of each COMMON prime; LCM takes the BIGGEST power of each prime that appears. HCF x LCM = product of the two numbers (works for two numbers only).",
+      "worked_example": "12 = 2^2 x 3, 18 = 2 x 3^2. HCF = 2^1 x 3^1 = 6. LCM = 2^2 x 3^2 = 36. Check: 6 x 36 = 216 = 12 x 18.",
+      "misconceptions": [
+        "taking the biggest power for HCF (that gives LCM)",
+        "applying HCF x LCM = product to three numbers"
+      ]
+    },
+    {
+      "id": "cc-polynomials-zeroes",
+      "chapter_id": "g10-c-polynomials",
+      "title": "Zeroes of a Polynomial",
+      "explanation": "A zero of p(x) is the x-value where the polynomial equals zero - the graph crosses the x-axis. For a quadratic ax^2 + bx + c, the sum of zeroes is -b/a and the product is c/a, even before you solve it.",
+      "worked_example": "p(x) = x^2 - 5x + 6. Sum of zeroes = -(-5)/1 = 5, product = 6/1 = 6. Indeed the zeroes are 2 and 3: 2 + 3 = 5, 2 x 3 = 6.",
+      "misconceptions": [
+        "using b/a instead of -b/a for the sum",
+        "thinking a zero means the polynomial is undefined there"
+      ]
+    },
+    {
+      "id": "cc-linear-eqs-elimination",
+      "chapter_id": "g10-c-pair-linear-eq",
+      "title": "Solving Two Linear Equations: Substitution and Elimination",
+      "explanation": "Two equations, two unknowns: express one variable in terms of the other (substitution) or add/subtract scaled equations so one variable cancels (elimination). One solution = lines intersect; no solution = parallel; infinite solutions = same line.",
+      "worked_example": "x + y = 7 and x - y = 3. Add them: 2x = 10, so x = 5. Then y = 7 - 5 = 2.",
+      "misconceptions": [
+        "adding equations without matching coefficients first",
+        "losing the minus sign when subtracting an entire equation"
+      ]
+    },
+    {
+      "id": "cc-quadratic-factorisation",
+      "chapter_id": "g10-c-quadratic-eq",
+      "title": "Solving Quadratics by Splitting the Middle Term",
+      "explanation": "For x^2 + bx + c, find two numbers that MULTIPLY to c and ADD to b. Split the middle term using them, group in pairs, pull out common factors. For ax^2 with a not 1, split using two numbers whose product is a x c and sum is b.",
+      "worked_example": "x^2 - 5x + 6: need product 6, sum -5 -> the numbers -2 and -3. So x^2 - 2x - 3x + 6 = x(x - 2) - 3(x - 2) = (x - 2)(x - 3). Zeroes: x = 2, x = 3.",
+      "misconceptions": [
+        "finding numbers that add to c instead of multiplying to c",
+        "forgetting BOTH signs flip when c is positive but b is negative"
+      ]
+    },
+    {
+      "id": "cc-quadratic-discriminant",
+      "chapter_id": "g10-c-quadratic-eq",
+      "title": "The Discriminant: Predicting Root Types",
+      "explanation": "For ax^2 + bx + c = 0, D = b^2 - 4ac decides everything: D > 0 gives two distinct real roots, D = 0 gives one repeated root, D < 0 gives no real roots. Compute D BEFORE solving - it tells you what to expect.",
+      "worked_example": "2x^2 - 4x + 2: D = (-4)^2 - 4(2)(2) = 16 - 16 = 0. One repeated root: x = -b/2a = 4/4 = 1.",
+      "misconceptions": [
+        "computing b^2 - 4ac as (b - 4a)(b + 4ac)",
+        "claiming D < 0 means x = 0"
+      ]
+    },
+    {
+      "id": "cc-ap-nth-term",
+      "chapter_id": "g10-c-arithmetic-progressions",
+      "title": "Arithmetic Progression: nth Term",
+      "explanation": "An AP adds the same common difference d each step. The nth term is a_n = a + (n - 1)d, where a is the first term. Count terms carefully: from a_3 to a_10 there are 7 steps, not 8.",
+      "worked_example": "AP 3, 7, 11, ... has a = 3, d = 4. The 10th term = 3 + 9 x 4 = 39.",
+      "misconceptions": [
+        "using n x d instead of (n - 1) x d",
+        "counting the first term as a step"
+      ]
+    },
+    {
+      "id": "cc-triangle-similarity",
+      "chapter_id": "g10-c-triangles",
+      "title": "Similar Triangles: AA, SSS, SAS",
+      "explanation": "Similar triangles have the same shape: angles equal and sides in proportion. AA (two angles match) is enough because the third angle follows. SSS needs all three side RATIOS equal; SAS needs two side ratios equal AND the angle between them.",
+      "worked_example": "If angle A = angle D and angle B = angle E, then triangle ABC ~ triangle DEF by AA, so AB/DE = BC/EF = AC/DF.",
+      "misconceptions": [
+        "using SAS with the angle NOT between the two sides",
+        "thinking equal sides means similar but proportional means congruent (it is the reverse)"
+      ]
+    },
+    {
+      "id": "cc-coordinate-distance",
+      "chapter_id": "g10-c-coordinate-geometry",
+      "title": "Distance Formula",
+      "explanation": "Distance between (x1, y1) and (x2, y2) is sqrt((x2 - x1)^2 + (y2 - y1)^2) - it is Pythagoras on the grid. Subtract in the same order both times; squaring hides sign mistakes but (x2 - x1) with (y1 - y2) mixes order and can still work only because of squaring - be consistent anyway.",
+      "worked_example": "Distance from (1, 2) to (4, 6) = sqrt(3^2 + 4^2) = sqrt(25) = 5.",
+      "misconceptions": [
+        "adding before squaring: sqrt((x2 + x1)^2)",
+        "mixing subtraction order between x and y pairs"
+      ]
+    },
+    {
+      "id": "cc-trig-ratios",
+      "chapter_id": "g10-c-intro-trigonometry",
+      "title": "Trigonometric Ratios in a Right Triangle",
+      "explanation": "For an angle in a right triangle: sin = opposite/hypotenuse, cos = adjacent/hypotenuse, tan = opposite/adjacent (remember SOH-CAH-TOA). Standard values worth memorising: sin 30 = 1/2, cos 60 = 1/2, tan 45 = 1, sin 45 = cos 45 = 1/sqrt(2).",
+      "worked_example": "In a right triangle with hypotenuse 10 and angle 30 at A, the side opposite A = 10 x sin 30 = 10 x 1/2 = 5.",
+      "misconceptions": [
+        "swapping opposite and adjacent relative to the chosen angle",
+        "using sin 45 = 1/2 (that is sin 30)"
+      ]
+    },
+    {
+      "id": "cc-statistics-mean",
+      "chapter_id": "g10-c-statistics",
+      "title": "Mean of Grouped Data",
+      "explanation": "For grouped data, multiply each class midpoint x_i by its frequency f_i, add them, divide by total frequency: mean = sum(f_i x x_i) / sum(f_i). The midpoint is (lower limit + upper limit)/2.",
+      "worked_example": "Classes 0-10 (f=2, midpoint 5) and 10-20 (f=3, midpoint 15): mean = (2x5 + 3x15)/(2+3) = 55/5 = 11.",
+      "misconceptions": [
+        "using class limits instead of midpoints",
+        "dividing by the number of classes instead of total frequency"
+      ]
+    },
+    {
+      "id": "cc-probability-basic",
+      "chapter_id": "g10-c-probability",
+      "title": "Basic Probability",
+      "explanation": "P(event) = favourable outcomes / total outcomes, always between 0 and 1. P(not E) = 1 - P(E). Count the TOTAL carefully - for two dice there are 36 outcomes, not 12.",
+      "worked_example": "One die: P(even) = 3/6 = 1/2. Two dice: P(sum = 7) = 6/36 = 1/6 (pairs: 1-6, 2-5, 3-4, 4-3, 5-2, 6-1).",
+      "misconceptions": [
+        "counting 6 x 2 = 12 outcomes for two dice",
+        "adding probabilities of events that can happen together"
+      ]
+    },
+    {
+      "id": "cc-rational-numbers-ops",
+      "chapter_id": "g8-c-rational-numbers",
+      "title": "Operations on Rational Numbers",
+      "explanation": "Add fractions by first making denominators equal (LCM), then adding numerators. Multiply straight across: top x top, bottom x bottom. Divide by flipping the second fraction and multiplying.",
+      "worked_example": "2/3 + 1/4: LCM of 3 and 4 is 12, so 8/12 + 3/12 = 11/12.",
+      "misconceptions": [
+        "adding denominators directly: 2/3 + 1/4 = 3/7 (wrong)",
+        "flipping the FIRST fraction when dividing"
+      ]
+    },
+    {
+      "id": "cc-linear-one-var",
+      "chapter_id": "g8-c-linear-eq-one-var",
+      "title": "Solving Linear Equations in One Variable",
+      "explanation": "Keep the equation balanced: do the same operation to both sides. Move variable terms to one side, numbers to the other, then divide. Always substitute your answer back to check.",
+      "worked_example": "3x + 5 = 20. Subtract 5: 3x = 15. Divide by 3: x = 5. Check: 3(5) + 5 = 20.",
+      "misconceptions": [
+        "adding 5 to both sides instead of subtracting",
+        "dividing only one term by the coefficient"
+      ]
+    },
+    {
+      "id": "cc-square-roots",
+      "chapter_id": "g8-c-squares-square-roots",
+      "title": "Finding Square Roots by Prime Factorisation",
+      "explanation": "Break the number into primes and pair identical factors; the square root takes ONE from each pair. Any factor left unpaired stays under the root sign.",
+      "worked_example": "324 = 2 x 2 x 3 x 3 x 3 x 3 = (2x3x3)^2, so sqrt(324) = 18.",
+      "misconceptions": [
+        "taking one from only some pairs",
+        "forgetting unpaired factors remain inside the root"
+      ]
+    },
+    {
+      "id": "cc-percentages-change",
+      "chapter_id": "g8-c-comparing-quantities",
+      "title": "Percentage Increase and Decrease",
+      "explanation": "Percentage change = (new - old)/old x 100. A 20% increase followed by a 20% decrease does NOT return to the start - the second 20% acts on a bigger number.",
+      "worked_example": "Rs 250 increased by 20%: 250 + 50 = 300. Decreased by 20%: 300 - 60 = 240, which is below 250.",
+      "misconceptions": [
+        "assuming percentage up then down cancels out",
+        "computing change from the NEW value instead of the old"
+      ]
+    }
+  ]
+}

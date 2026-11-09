@@ -33,7 +33,8 @@ from langgraph.graph import END, START, MessagesState, StateGraph
 
 from app.agent.guardrails import SAFE_REFUSAL, is_blocked
 from app.agent.prompts import SYSTEM_TEMPLATE
-from app.llm.gateway import extract_text, get_chat_model
+from app.llm.gateway import (_fallback_provider, extract_text, get_chat_model,
+                             is_quota_error)
 from app.tools import TOOLS
 
 TOOL_MAP = {t.name: t for t in TOOLS}
@@ -94,7 +95,16 @@ def guardrail_node(state: TutorState):
 def make_agent_node(model_with_tools):
     """The tutor's brain. Student identity rides in via config (NOT stored in
     state) so the system prompt is rebuilt fresh each request and never
-    accumulates in checkpointed history."""
+    accumulates in checkpointed history.
+
+    QUOTA FALLBACK (found the hard way in P8 E2E): bind_tools().invoke()
+    is a different call path from chat() and had NO fallback - one 429
+    killed the whole turn. Now: primary -> on quota error, retry once on
+    the fallback provider's tool-bound twin (if a fallback key exists).
+    """
+    fallback_model = None
+    if (fb := _fallback_provider()):
+        fallback_model = get_chat_model(fb).bind_tools(TOOLS)
 
     def agent_node(state: TutorState, config: RunnableConfig):
         student = (config.get("configurable") or {}).get("student") or {}
@@ -102,7 +112,13 @@ def make_agent_node(model_with_tools):
             name=student.get("name", "friend"),
             grade=student.get("grade", 10),
         ))
-        response = model_with_tools.invoke([system, *state["messages"]])
+        messages = [system, *state["messages"]]
+        try:
+            response = model_with_tools.invoke(messages)
+        except Exception as exc:
+            if fallback_model is None or not is_quota_error(exc):
+                raise
+            response = fallback_model.invoke(messages)
         return {"messages": [response]}
 
     return agent_node
