@@ -29,8 +29,18 @@ SCHEMA = """
 -- A student is created at onboarding: name, board, class.
 -- v1 is single-board (CBSE) but the column exists from day one so
 -- ICSE support later is data + content, not a migration.
+-- Parents own the account (DPDP-safe: kids never have credentials).
+-- pin_hash = SHA-256 of a 4-digit PIN (POC hashing; bcrypt at deploy).
+CREATE TABLE IF NOT EXISTS parents (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    pin_hash   TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS students (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    parent_id  INTEGER REFERENCES parents(id),
     name       TEXT NOT NULL,
     board      TEXT NOT NULL DEFAULT 'CBSE',
     grade      INTEGER NOT NULL CHECK (grade BETWEEN 5 AND 10),
