@@ -74,10 +74,27 @@ function enterChat(id, name) {
 
 // ---------- chat rendering ----------
 
+// Safe markdown-lite for AI bubbles: escape ALL HTML first, then turn a
+// few markdown constructs into tags. Escaping-before-replacing means an
+// LLM can never inject markup/script into the page (prompt-injection XSS).
+function renderRich(text) {
+  let t = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  t = t
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/\n/g, "<br>");
+  return t;
+}
+
 function bubble(role, text = "") {
   const div = document.createElement("div");
   div.className = `msg ${role}`;
-  div.textContent = text;
+  if (role === "ai") div.innerHTML = renderRich(text); // AI: markdown-lite
+  else div.textContent = text;                          // user input: never rendered as HTML
   els.messages.appendChild(div);
   els.messages.scrollTop = els.messages.scrollHeight;
   return div;
@@ -130,7 +147,7 @@ async function send() {
         if (payload.done) continue;
         if (payload.delta) {
           received += payload.delta;
-          aiBubble.textContent = received;
+          aiBubble.innerHTML = renderRich(received);
           els.messages.scrollTop = els.messages.scrollHeight;
         }
       }

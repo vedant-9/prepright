@@ -83,6 +83,10 @@ main {
 .msg.user { align-self: flex-end; background: var(--bubble-user); border-bottom-right-radius: 4px; }
 .msg.ai   { align-self: flex-start; background: var(--bubble-ai); border-bottom-left-radius: 4px; }
 
+/* markdown-lite bits inside AI bubbles */
+.msg code { background: rgba(0,0,0,0.3); padding: 0 4px; border-radius: 4px; font-family: Consolas, monospace; }
+.msg strong { font-weight: 700; color: var(--accent); }
+
 .status { color: var(--muted); font-style: italic; padding: 0 4px; }
 
 #composer { display: flex; gap: 8px; }
