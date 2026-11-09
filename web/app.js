@@ -179,6 +179,12 @@ async function send(presetText) {
           throw new Error(payload.error);
         }
         if (payload.done) continue;
+        if (payload.quiz) {
+          // STRUCTURED quiz delivery: cards rendered from data, not prose.
+          // The answer key is not in this payload - it stays server-side.
+          renderStructuredQuiz(payload.quiz);
+          continue;
+        }
         if (payload.tool) {
           if (toolChip) toolChip.remove();
           toolChip = addToolChip(payload.tool);
@@ -211,49 +217,156 @@ function setStreaming(on) {
   if (!on) els.input.focus();
 }
 
-// ---------- quiz cards (P7) -------------------------------------------
-// After a reply finishes, if it contains "A) ... B) ... C) ... D)" option
-// lines, replace them with tappable buttons. Clicking sends the letter as
-// the chat message - identical to typing it. The ANSWER KEY never reaches
-// the browser: the model grades server-side via the grade_answer tool, so
-// a student cannot read the correct option from the page source.
+// ---------- quiz cards (P7 single + P9.1 batch) ------------------------
+// After a reply finishes:
+// - ONE question with options  -> instant-feedback card (learn mode):
+//   tap an option -> sends that letter -> graded -> coaching streams back
+// - MULTIPLE "Question N" blocks -> batch card (quiz mode, exam style):
+//   select an option per question, then Submit sends ALL answers as one
+//   message ("My answers: 1:A 2:C ...") -> graded together + review.
+// The ANSWER KEY never reaches the browser in either mode: grading happens
+// server-side via the grade_answer tool.
 
 const OPTION_RE = /^([A-D])\)\s+(.+)$/gm;
+const QHEADER_RE = /^\s*(?:\*\*)?Question\s+(\d+)\s*(?:\*\*)?\s*:?\s*(.*)$/i;
 
 function finalizeAiBubble(div, rawText) {
-  const opts = [];
-  let m;
-  const re = new RegExp(OPTION_RE.source, "gm");
-  while ((m = re.exec(rawText)) !== null) opts.push({ letter: m[1], text: m[2] });
-  if (opts.length < 2) return; // not a quiz question -> leave as plain text
+  // split into question blocks by "Question N" headers
+  const blocks = [];
+  let preamble = [];
+  let current = null;
+  for (const line of rawText.split("\n")) {
+    const h = line.match(QHEADER_RE);
+    if (h) {
+      current = { num: h[1], lines: h[2] ? [h[2]] : [] };
+      blocks.push(current);
+    } else if (current) {
+      current.lines.push(line);
+    } else {
+      preamble.push(line);
+    }
+  }
 
-  const stripped = rawText
+  const withOptions = blocks.filter((b) => countOptions(b.lines.join("\n")) >= 2);
+
+  if (withOptions.length >= 2) {
+    renderBatchCard(div, preamble.join("\n"), withOptions);
+  } else if (withOptions.length === 1) {
+    renderSingleCard(div, preamble.concat(blocks.slice(0, blocks.indexOf(withOptions[0])).flatMap(b => b.lines)).join("\n"), withOptions[0]);
+  } // else: plain text - already rendered by the streaming path
+}
+
+function countOptions(text) {
+  const re = new RegExp(OPTION_RE.source, "gm");
+  let n = 0;
+  while (re.exec(text) !== null) n++;
+  return n;
+}
+
+function renderSingleCard(div, preText, block) {
+  const body = block.lines.join("\n");
+  const stripped = body
     .replace(new RegExp(OPTION_RE.source, "gm"), "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  div.innerHTML = renderRich(stripped);
+  div.innerHTML = renderRich([preText, `**Question ${block.num}**`, stripped].filter(Boolean).join("\n\n"));
 
   const box = document.createElement("div");
   box.className = "opt-box";
-  opts.forEach((o) => {
+  parseOptions(body).forEach((o) => {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "opt-btn";
     b.textContent = `${o.letter})  ${o.text}`;
-    b.addEventListener("click", () => answerQuiz(box, b, o.letter));
+    b.addEventListener("click", () => {
+      if (streaming) return;
+      box.querySelectorAll(".opt-btn").forEach((x) => (x.disabled = true));
+      b.classList.add("picked");
+      els.input.value = "";
+      send(o.letter); // instant feedback path
+    });
     box.appendChild(b);
   });
   div.appendChild(box);
   els.messages.scrollTop = els.messages.scrollHeight;
 }
 
-function answerQuiz(box, btn, letter) {
-  if (streaming) return;                 // can't answer while the tutor is typing
-  box.querySelectorAll(".opt-btn").forEach((b) => (b.disabled = true));
-  btn.classList.add("picked");
-  // send(letter) renders the student's message itself - no duplicate bubble here
-  els.input.value = "";
-  send(letter);                          // grade server-side; coaching streams back
+function renderBatchCard(div, preText, blocks) {
+  div.innerHTML = renderRich(preText.trim());
+  const selections = new Map(); // question num -> letter
+  const submitBtn = document.createElement("button");
+  submitBtn.type = "button";
+  submitBtn.className = "opt-btn submit-all";
+  submitBtn.textContent = "Submit all answers";
+  submitBtn.disabled = true;
+
+  blocks.forEach((block) => {
+    const body = block.lines.join("\n");
+    const stripped = body
+      .replace(new RegExp(OPTION_RE.source, "gm"), "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    const q = document.createElement("div");
+    q.className = "q-block";
+    q.innerHTML = `<div class="q-title">Question ${block.num}</div>` +
+                  renderRich(stripped);
+    const box = document.createElement("div");
+    box.className = "opt-box";
+    parseOptions(body).forEach((o) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "opt-btn";
+      b.textContent = `${o.letter})  ${o.text}`;
+      b.addEventListener("click", () => {
+        if (streaming) return;
+        box.querySelectorAll(".opt-btn").forEach((x) => x.classList.remove("picked"));
+        b.classList.add("picked");
+        selections.set(block.num, o.letter);
+        submitBtn.disabled = selections.size < blocks.length;
+      });
+      box.appendChild(b);
+    });
+    q.appendChild(box);
+    div.appendChild(q);
+  });
+
+  submitBtn.addEventListener("click", () => {
+    if (streaming || submitBtn.disabled) return;
+    div.querySelectorAll(".opt-btn").forEach((x) => (x.disabled = true));
+    const answers = blocks.map((b) => `${b.num}:${selections.get(b.num)}`).join(" ");
+    els.input.value = "";
+    send(`My answers: ${answers}`);
+  });
+  const submitBox = document.createElement("div");
+  submitBox.className = "opt-box";
+  submitBox.appendChild(submitBtn);
+  div.appendChild(submitBox);
+  els.messages.scrollTop = els.messages.scrollHeight;
+}
+
+function parseOptions(text) {
+  const re = new RegExp(OPTION_RE.source, "gm");
+  const opts = [];
+  let m;
+  while ((m = re.exec(text)) !== null) opts.push({ letter: m[1], text: m[2] });
+  return opts;
+}
+
+// Structured quiz (P9.1): server-sent questions rendered directly - the
+// model never retypes them, so hallucinated/reformatted quizzes are
+// structurally impossible.
+function renderStructuredQuiz(quiz) {
+  const holder = document.createElement("div");
+  holder.className = "msg ai";
+  const title = quiz.chapter ? `**Quiz - ${quiz.chapter}** (difficulty ${quiz.difficulty}/5)` : "**Quiz**";
+  holder.innerHTML = renderRich(title);
+  const LETTERS = ["A", "B", "C", "D"];
+  renderBatchCard(holder, "", quiz.questions.map((q) => ({
+    num: q.num,
+    lines: [q.text, ...q.options.map((text, i) => `${LETTERS[i]}) ${text}`)],
+  })));
+  els.messages.appendChild(holder);
+  els.messages.scrollTop = els.messages.scrollHeight;
 }
 
 els.composer.onsubmit = (e) => {

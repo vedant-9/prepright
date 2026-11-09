@@ -6,8 +6,8 @@ from app.data.db import get_conn
 
 
 @tool
-def record_progress(student_id: int, chapter_id: str, difficulty: int,
-                    correct: int, total: int, error_notes: str = "") -> dict:
+def record_progress(student_id: float, chapter_id: str, difficulty: float,
+                    correct: float, total: float, error_notes: str = "") -> dict:
     """Append a practice result to the student's mastery history. Call once
     per completed quiz. error_notes: one short diagnostic line describing the
     mistake pattern you observed (e.g. 'sign errors when factoring')."""
@@ -15,13 +15,13 @@ def record_progress(student_id: int, chapter_id: str, difficulty: int,
         conn.execute(
             "INSERT INTO progress_events (student_id, chapter_id, difficulty, correct, total, error_notes) "
             "VALUES (?, ?, ?, ?, ?, ?)",
-            (student_id, chapter_id, difficulty, correct, total, error_notes or None),
+            (int(student_id), chapter_id, int(difficulty), int(correct), int(total), error_notes or None),
         )
     return {"recorded": True}
 
 
 @tool
-def get_student_profile(student_id: int) -> dict:
+def get_student_profile(student_id: float) -> dict:
     """Fetch a student's per-chapter mastery (rolling accuracy) so teaching
     can adapt: revisit weak chapters, raise difficulty on strong ones.
     Read this at the start of a session."""
@@ -29,7 +29,7 @@ def get_student_profile(student_id: int) -> dict:
         rows = conn.execute(
             "SELECT chapter_id, SUM(correct) AS c, SUM(total) AS t "
             "FROM progress_events WHERE student_id = ? GROUP BY chapter_id",
-            (student_id,),
+            (int(student_id),),
         ).fetchall()
     chapters = []
     for r in rows:
@@ -38,4 +38,4 @@ def get_student_profile(student_id: int) -> dict:
             "accuracy": round(r["c"] / r["t"], 2),
             "attempts": r["t"],
         })
-    return {"student_id": student_id, "chapters": chapters}
+    return {"student_id": int(student_id), "chapters": chapters}

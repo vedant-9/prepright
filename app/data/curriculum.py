@@ -7,7 +7,7 @@ DATA MODEL (why it looks like this):
   units (chapter mastery aggregates into its unit).
 - The file is versioned (version / source / last_verified). A syllabus change
   = edit JSON + bump version. No code, no deploy.
-- Grades 5–7 titles are flagged provisional_titles until re-verified against
+- Grades 5-7 titles are flagged provisional_titles until re-verified against
   the current NCERT series (textbooks are mid-revamp under NCF-SE 2023).
 """
 

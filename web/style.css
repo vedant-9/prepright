@@ -114,6 +114,12 @@ main {
 .opt-btn:disabled { opacity: 0.5; cursor: default; }
 .opt-btn.picked { border-color: var(--accent); background: rgba(255,184,77,0.12); opacity: 1; }
 
+/* batch quiz (P9.1): multiple question blocks + submit */
+.q-block { margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.q-block .q-title { font-weight: 600; color: var(--accent); margin-bottom: 6px; }
+.opt-btn.submit-all { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.opt-btn.submit-all:disabled { opacity: 0.4; }
+
 .status { color: var(--muted); font-style: italic; padding: 0 4px; }
 
 #composer { display: flex; gap: 8px; }

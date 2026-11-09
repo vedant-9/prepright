@@ -6,9 +6,9 @@ from app.data import curriculum
 
 
 @tool
-def get_curriculum(grade: int) -> dict:
+def get_curriculum(grade: float) -> dict:
     """List the maths chapters for a CBSE grade, with each chapter's unit
     marks (marks indicate exam importance). Use to help the student pick
     what to practice."""
-    chapters = curriculum.get_chapters(grade)
-    return {"grade": grade, "chapters": chapters}
+    chapters = curriculum.get_chapters(int(grade))
+    return {"grade": int(grade), "chapters": chapters}

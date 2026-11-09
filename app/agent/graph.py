@@ -31,7 +31,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, START, MessagesState, StateGraph
 
-from app.agent.guardrails import SAFE_REFUSAL, is_blocked
+from app.agent.guardrails import OFF_TOPIC_REPLY, SAFE_REFUSAL, is_blocked, is_off_topic
 from app.agent.prompts import SYSTEM_TEMPLATE
 from app.llm.gateway import (_fallback_provider, extract_text, get_chat_model,
                              is_quota_error)
@@ -39,11 +39,11 @@ from app.tools import TOOLS
 
 TOOL_MAP = {t.name: t for t in TOOLS}
 
-# Loop cap: one full teaching turn can legitimately spend 3 tool rounds
-# (profile -> curriculum -> quiz) = 8 super-steps (guardrail + agent/tools
-# pairs + final agent reply). 10 leaves headroom while making runaway
-# loops impossible. Set per request via config; measured in P6 E2E.
-RECURSION_LIMIT = 10
+# Loop cap (measured in P9.1 E2E): a full quiz turn spends guardrail +
+# profile/curriculum/quiz rounds + 5 batched grade_answer calls +
+# record_progress + review = ~14 super-steps. 16 leaves headroom while
+# still making runaway loops impossible.
+RECURSION_LIMIT = 16
 
 
 class TutorState(MessagesState):
@@ -80,8 +80,10 @@ async def init_graph() -> None:
 # ---------------------------------------------------------------- nodes
 
 def guardrail_node(state: TutorState):
-    """Topic screen BEFORE any model spend. Blocked -> safe refusal + flag.
-
+    """Screens BEFORE any model spend. Two zero-token exits:
+    - blocked (unsafe list)   -> SAFE_REFUSAL
+    - off-topic (embedding similarity below threshold, e.g. "who is modi")
+                             -> OFF_TOPIC_REPLY - no chat tokens wasted
     (PII redaction already happened at the API boundary - it must never be
     stored in checkpoints. This node is the routing example: notice no LLM.)
     """
@@ -89,6 +91,8 @@ def guardrail_node(state: TutorState):
     text = last.content if isinstance(last.content, str) else str(last.content)
     if is_blocked(text):
         return {"blocked": True, "messages": [AIMessage(content=SAFE_REFUSAL)]}
+    if is_off_topic(text):
+        return {"blocked": True, "messages": [AIMessage(content=OFF_TOPIC_REPLY)]}
     return {"blocked": False}
 
 
@@ -116,7 +120,11 @@ def make_agent_node(model_with_tools):
         try:
             response = model_with_tools.invoke(messages)
         except Exception as exc:
-            if fallback_model is None or not is_quota_error(exc):
+            # Fallback on ANY primary failure (P9.1 hardening): the original
+            # retry-only-on-quota design died when a schema-validation error
+            # hit Groq and Gemini was quota-dead in the same breath. For a
+            # kids' app, availability beats purity - log and try the twin.
+            if fallback_model is None:
                 raise
             response = fallback_model.invoke(messages)
         return {"messages": [response]}
@@ -124,19 +132,31 @@ def make_agent_node(model_with_tools):
     return agent_node
 
 
-def tools_node(state: TutorState):
+def tools_node(state: TutorState, config: RunnableConfig):
     """Execute the model's tool requests with OUR code. Hand-rolled on
-    purpose (langgraph.prebuilt.ToolNode exists) - visible beats convenient,
-    and it's 15 lines. Errors become tool results, not crashes - the agent
-    can apologize/retry instead of the request dying."""
+    purpose (langgraph.prebuilt.ToolNode exists) - visible beats convenient.
+    IDENTITY INJECTION: student_id comes from the server-side config and is
+    merged into every call's args - the model never supplies (or forges)
+    who it is acting for. Errors become tool results, not crashes; even
+    READING .tool_calls is armored (malformed args JSON raises there)."""
     last = state["messages"][-1]
+    student = (config.get("configurable") or {}).get("student") or {}
     results = []
-    for call in last.tool_calls:
+    try:
+        calls = list(last.tool_calls or [])
+    except Exception as exc:  # malformed tool_call from the model
+        return {"messages": [ToolMessage(
+            content=json.dumps({"error": f"malformed tool call: {exc}"}),
+            tool_call_id="parse_error")]}
+    for call in calls:
         tool = TOOL_MAP.get(call["name"])
         try:
             if tool is None:
                 raise ValueError(f"unknown tool: {call['name']}")
-            out = tool.invoke(call["args"])
+            args = dict(call["args"])
+            if "student_id" in getattr(tool, "args", {}):
+                args["student_id"] = student.get("id", 0)  # server-injected
+            out = tool.invoke(args)
             content = json.dumps(out, default=str)  # tools return dicts
         except Exception as exc:
             content = json.dumps({"error": str(exc)}, default=str)
@@ -152,8 +172,16 @@ def route_after_guardrail(state: TutorState) -> str:
 
 def route_after_agent(state: TutorState) -> str:
     last = state["messages"][-1]
+    # NOTE: getattr(x, "tool_calls", None) does NOT catch exceptions raised
+    # INSIDE the property - malformed args JSON raises here. Route to tools
+    # anyway: tools_node is armored and will hand the parse error back to
+    # the model as a ToolMessage so it can retry.
+    try:
+        calls = last.tool_calls
+    except Exception:
+        return "tools"
     # tool_calls is [] (not None) when the model wants no tools
-    return "tools" if getattr(last, "tool_calls", None) else END
+    return "tools" if calls else END
 
 
 def _build_graph(checkpointer, model_with_tools=None):
@@ -195,7 +223,8 @@ async def stream_tutor_turn(student: dict, message: str,
         "recursion_limit": RECURSION_LIMIT,
         "configurable": {
             "thread_id": f"student-{student['id']}",
-            "student": {"name": student["name"], "grade": student["grade"]},
+            "student": {"id": student["id"], "name": student["name"],
+                        "grade": student["grade"]},
         },
     }
     inputs = {"messages": [HumanMessage(content=message)]}
@@ -220,6 +249,37 @@ async def stream_tutor_turn(student: dict, message: str,
                         yield {"delta": m.content}
                 if node == "agent":
                     # surface tool activity the moment the model requests it
+                    # (same property-access caveat as route_after_agent)
                     for m in update.get("messages", []):
-                        for tc in getattr(m, "tool_calls", None) or []:
+                        try:
+                            calls = m.tool_calls or []
+                        except Exception:
+                            calls = []
+                        for tc in calls:
                             yield {"tool": tc["name"]}
+                if node == "tools":
+                    # STRUCTURED QUIZ DELIVERY (P9.1 architecture fix): when
+                    # generate_quiz runs, emit the quiz itself as an event.
+                    # The frontend renders cards from DATA, not from model
+                    # prose - the model physically cannot hallucinate or
+                    # reformat the questions. Answers are stripped here:
+                    # the key stays server-side (in the model's tool result)
+                    # and NEVER reaches the browser.
+                    for m in update.get("messages", []):
+                        if m.__class__.__name__ != "ToolMessage":
+                            continue
+                        try:
+                            blob = json.loads(m.content)
+                        except (TypeError, json.JSONDecodeError):
+                            continue
+                        if isinstance(blob, dict) and blob.get("questions"):
+                            yield {"quiz": {
+                                "chapter": blob.get("chapter"),
+                                "difficulty": blob.get("difficulty"),
+                                "questions": [
+                                    {"num": i + 1,
+                                     "text": q["question_text"],
+                                     "options": q["options"]}
+                                    for i, q in enumerate(blob["questions"])
+                                ],
+                            }}

@@ -18,6 +18,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.agent import graph as g
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_guardrail(monkeypatch):
+    """Routing tests must not depend on live embeddings: pin the off-topic
+    classifier to a fixed answer (it is tested separately in
+    test_guardrails.py). Found the hard way: "do something else" scored
+    off-topic against the real API and silently rerouted the test."""
+    monkeypatch.setattr("app.agent.graph.is_off_topic", lambda text, **kw: False)
+
+
 class FakeModel:
     """Scripted stand-in for the bound chat model. Records every invoke."""
 
