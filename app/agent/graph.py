@@ -125,9 +125,12 @@ def make_agent_node(model_with_tools):
             # Fallback on ANY primary failure (P9.1 hardening): the original
             # retry-only-on-quota design died when a schema-validation error
             # hit Groq and Gemini was quota-dead in the same breath. For a
-            # kids' app, availability beats purity - log and try the twin.
+            # kids' app, availability beats purity - but NEVER silently:
+            # every fallback is logged with both reasons.
             if fallback_model is None:
                 raise
+            log.warning("primary model failed (%s: %s) - falling back",
+                        type(exc).__name__, str(exc)[:200])
             response = fallback_model.invoke(messages)
         return {"messages": [response]}
 
