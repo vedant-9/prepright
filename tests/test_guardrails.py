@@ -62,33 +62,34 @@ def test_refusal_is_safe_and_redirects():
     assert "maths" in SAFE_REFUSAL.lower() and "chapter" in SAFE_REFUSAL.lower()
 
 
-# ---- off-topic screen (P9.1) --------------------------------------------
+# ---- off-topic screen (P9.6: LLM classifier behind regex fast-pass) ------
 
-from app.agent.guardrails import (is_off_topic,  # noqa: E402
-                                  OFF_TOPIC_THRESHOLD)
-
-
-def test_off_topic_threshold_logic_math_passes():
-    # calibrated live: maths queries score >= 0.66
-    assert is_off_topic("solve for x", top_score=0.66) is False
-    assert is_off_topic("solve for x", top_score=0.90) is False
+from app.agent import guardrails as gd  # noqa: E402
+from app.agent.guardrails import is_off_topic  # noqa: E402
 
 
-def test_off_topic_threshold_logic_chitchat_blocked():
-    # calibrated live: chit-chat scores <= 0.575
-    assert is_off_topic("who is modi", top_score=0.575) is True
-    assert is_off_topic("tell me a joke", top_score=0.30) is True
-
-
-def test_threshold_has_margin_on_both_sides():
-    # guard against accidental recalibration squeezes
-    assert 0.575 < OFF_TOPIC_THRESHOLD < 0.66
-
-
-def test_off_topic_fails_open_on_retrieval_error(monkeypatch):
-    import app.rag.retriever as retr
-    monkeypatch.setattr(retr, "retrieve", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+def test_regex_evidence_short_circuits_no_classifier_call(monkeypatch):
+    # evidence = instant pass; the LLM classifier must never be consulted
+    monkeypatch.setattr(gd, "_classify_with_llm",
+                        lambda t: (_ for _ in ()).throw(AssertionError("should not classify")))
     assert is_off_topic("solve for x") is False
+
+
+def test_classifier_rejects_when_no_evidence(monkeypatch):
+    monkeypatch.setattr(gd, "_classify_with_llm", lambda t: True)
+    assert is_off_topic("who is modi") is True
+
+
+def test_classifier_passes_ambiguous_study_intent(monkeypatch):
+    # e.g. Hinglish / slang the regex cannot enumerate
+    monkeypatch.setattr(gd, "_classify_with_llm", lambda t: False)
+    assert is_off_topic("ganit mein atka hoon") is False
+
+
+def test_classifier_fails_open_on_error(monkeypatch):
+    monkeypatch.setattr(gd, "_classify_with_llm",
+                        lambda t: (_ for _ in ()).throw(RuntimeError("provider down")))
+    assert is_off_topic("who is modi") is False  # fail open, never block
 
 
 def test_offtopic_reply_redirects_to_maths():
@@ -100,10 +101,11 @@ def test_offtopic_reply_redirects_to_maths():
 from app.agent.guardrails import has_math_evidence  # noqa: E402
 
 
-def test_mixed_message_math_evidence_overrides_embeddings():
-    # even a garbage embedding score must not refuse a real math question
-    # embedded in a mixed message (deterministic override)
-    assert is_off_topic("who is modi and what is 5 * 3 ?", top_score=0.10) is False
+def test_mixed_message_math_evidence_overrides_classifier(monkeypatch):
+    # even a classifier screaming "off-topic" must not refuse a real math
+    # question embedded in a mixed message (deterministic fast-pass wins)
+    monkeypatch.setattr(gd, "_classify_with_llm", lambda t: True)
+    assert is_off_topic("who is modi and what is 5 * 3 ?") is False
 
 
 def test_math_evidence_detector_symbols():
@@ -137,6 +139,7 @@ def test_common_misspellings_pass_evidence():
     assert has_math_evidence("revise quadritic equations") is True  # revis/quadrat/equat
 
 
-def test_pure_off_topic_still_blocked_by_embeddings():
-    # no evidence -> embedding layer decides; chit-chat scores ~0.575 live
-    assert is_off_topic("who is modi", top_score=0.575) is True
+def test_pure_off_topic_blocked_by_classifier(monkeypatch):
+    # no evidence -> the open-vocabulary classifier decides
+    monkeypatch.setattr(gd, "_classify_with_llm", lambda t: True)
+    assert is_off_topic("who is modi") is True

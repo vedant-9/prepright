@@ -10,16 +10,21 @@ DESIGN NOTES:
    Smarter classification can later be a cheap model call on top - the
    deterministic floor stays (belt and suspenders).
 
-OFF-TOPIC SCREEN (P9.1): "who is modi" used to burn a full chat completion
-just to be told no. Now: the best RAG retrieval score against our PURE-MATHS
-concept corpus (embeddings are a separate tiny quota; corpus vectors are
-disk-cached) - below threshold -> canned redirect, ZERO chat tokens.
-Calibrated live: maths/study queries score >= 0.66, chit-chat <= 0.575;
-threshold 0.62 has margin on both sides. Fails OPEN if retrieval is
-unavailable: a broken classifier must never block maths teaching.
+OFF-TOPIC SCREEN (P9.6): two layers, each doing only what it is good at.
+1. REGEX FAST-PASS (instant, typo-tolerant stems): math evidence means
+   NEVER off-topic. This list is hardcoded ON PURPOSE and is safe to be
+   incomplete - a missing stem only falls through to layer 2, never
+   refuses a real question (fail-open by construction).
+2. TINY LLM CLASSIFIER (open vocabulary): the actual rejecter. Handles any
+   phrasing, typo, or language (Hinglish included) that regex can't
+   enumerate - hardcoded lists cannot scale to how kids actually talk.
+   ~20 output tokens, and only spent when regex finds no evidence.
+   Fails OPEN on any error: a broken classifier must never block teaching.
+An in-memory cache keeps repeated messages free.
 """
 
 import re
+from functools import lru_cache
 
 # Indian mobile numbers (optionally +91 prefixed), compact or 5+5 spaced,
 # never matching inside longer digit runs (lookarounds)
@@ -42,21 +47,21 @@ OFF_TOPIC_REPLY = ("That's outside maths, so it's not something I can help with 
                    "I'm your maths tutor! Want to learn a concept or take a "
                    "practice quiz?")
 
-OFF_TOPIC_THRESHOLD = 0.62
+OFF_TOPIC_THRESHOLD = 0.62  # legacy: embeddings threshold, kept for reference
 
 # MATH EVIDENCE (deterministic override, P9.1): mixed messages like
-# "who is modi and what is 5 * 3 ?" score ~0.635 on embeddings - barely
-# above the threshold by luck. When hard math evidence exists we never
-# classify off-topic: refusing a student's real math question is the worst
-# failure mode, so evidence overrides embeddings every time.
+# "who is modi and what is 5 * 3 ?" must never be refused. When hard math
+# evidence exists we never classify off-topic: refusing a student's real
+# math question is the worst failure mode.
 #
 # P9.4 HARDENING - STEM MATCHING: kids typo constantly. Whole-word
 # matching (\bquiz\b) refused "start quizz" - exactly the right request,
 # spelled slightly wrong. Stems (quiz -> quizz/quizzes, factori ->
 # factorise/factoring/factorization) catch typos and inflections. Short
 # ambiguous stems (mean, mode, tan, test, sin, cos) keep their \b.
-# Failure direction is deliberate: a false positive reaches the model,
-# which politely steers - a false negative refuses a real question.
+# Failure direction is deliberate: a false positive reaches layer 2
+# or the model, which politely steers - a false negative refuses a real
+# question.
 MATH_EVIDENCE_RE = re.compile(
     r"(\d\s*[+\-x×*/÷^]\s*\d)"          # arithmetic: 5 * 3, 12+7, x^2
     r"|(\d+\s*%)"                        # percentages
@@ -90,26 +95,53 @@ def has_math_evidence(text: str) -> bool:
     return bool(MATH_EVIDENCE_RE.search(text))
 
 
-def is_off_topic(text: str, *, top_score=None) -> bool:
+def is_off_topic(text: str, *, classify=None) -> bool:
     """True if unrelated to maths/study -> canned redirect, zero chat tokens.
 
     Layered decision (each layer covers the other's weakness):
-    1. MATH EVIDENCE override - explicit symbols/words mean never off-topic,
-       even inside a mixed message ("who is modi and what is 5 * 3 ?").
-    2. Embedding similarity - the whole-message retrieval score vs the pure
-       maths corpus, for fuzzy cases with no symbols ("i am confused").
-
-    Decision is separated from the signal for testability: pass top_score
-    to exercise the threshold branch deterministically.
+    1. MATH EVIDENCE fast-pass - explicit symbols/words mean never
+       off-topic, even inside a mixed message ("who is modi and 5 * 3?").
+       Instant, free, typo-tolerant, and deliberately allowed to be an
+       incomplete list (misses fall to layer 2, never refuse).
+    2. TINY LLM CLASSIFIER - open-vocabulary rejecter for everything regex
+       can't enumerate: typos, Hinglish, slang, novel phrasings.
+       `classify` is a test hook to inject the verdict deterministically.
+       Fails OPEN on any error: a broken classifier must never block
+       maths teaching.
     """
     if has_math_evidence(text):
         return False
-    if top_score is not None:
-        return top_score < OFF_TOPIC_THRESHOLD
+    if classify is not None:
+        return classify
     try:
-        from app.rag.retriever import retrieve
-        best = retrieve(text, k=1)["results"][0]["score"]
-        return best < OFF_TOPIC_THRESHOLD
+        return _classify_with_llm(text)
+    except Exception:
+        return False  # double armor: even the call site must fail open
+
+
+@lru_cache(maxsize=512)
+def _classify_with_llm(text: str) -> bool:
+    """~20-token structured call, only spent when regex finds no evidence.
+    Cached so repeated messages (and flapping retries) stay free."""
+    try:
+        from langchain_core.messages import HumanMessage
+        from pydantic import BaseModel
+
+        from app.llm.gateway import generate_structured
+
+        class Relevance(BaseModel):
+            is_maths: bool
+
+        out = generate_structured(Relevance, [HumanMessage(content=(
+            "You filter messages for a CBSE maths-tutoring app (students aged 10-16). "
+            "Is this message about maths, maths homework, quizzes/tests on maths, "
+            "chapters, or asking the tutor for maths help? General study intent and "
+            "being stuck on schoolwork count as YES. Small typos and any language "
+            "(Hindi, Hinglish, etc.) count. Politics, celebrities, relationships, "
+            "jokes, games and everything else are NO.\n\n"
+            f'Student message: "{text}"'
+        ))])
+        return not out.is_maths
     except Exception:
         return False  # fail open: never block teaching on a broken classifier
 
