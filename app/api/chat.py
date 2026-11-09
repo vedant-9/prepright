@@ -15,6 +15,7 @@ is `data: <json>\n\n`; browser reads via fetch + ReadableStream.
 """
 
 import json
+import logging
 from typing import AsyncIterator
 
 from fastapi import APIRouter, HTTPException
@@ -24,8 +25,27 @@ from pydantic import BaseModel, Field
 from app.agent.graph import stream_tutor_turn
 from app.agent.guardrails import redact_pii
 from app.data.db import get_conn
+from app.llm.gateway import is_quota_error
+
+log = logging.getLogger("prepright.chat")
 
 router = APIRouter(prefix="/api", tags=["chat"])
+
+# CLIENT-FACING ERRORS ARE FRIENDLY BY POLICY (P9.3): raw provider
+# exceptions (model names, quota URLs, retry timers) are internal detail -
+# they belong in server logs, never in a kid's chat bubble. Classification
+# happens here; the browser only ever sees the friendly text.
+FRIENDLY_QUOTA = ("Oops - our teaching service is very busy right now. "
+                  "Please try again in a few minutes!")
+FRIENDLY_GENERIC = ("Hmm, something went wrong on my side. "
+                    "Please try again - your progress is safe.")
+
+
+def friendly_error(exc: Exception) -> str:
+    """Map any exception to a kid-safe message. Detail goes to the log."""
+    if is_quota_error(exc):
+        return FRIENDLY_QUOTA
+    return FRIENDLY_GENERIC
 
 
 class ChatIn(BaseModel):
@@ -57,7 +77,10 @@ async def chat(body: ChatIn) -> StreamingResponse:
             async for payload in stream_tutor_turn(student, clean):
                 yield _event(payload)
             yield _event({"done": True})
-        except Exception as exc:  # surface errors in-stream, never a dead hang
-            yield _event({"error": str(exc)})
+        except Exception as exc:
+            # full detail (traceback included) stays server-side;
+            # the student sees only the friendly classification
+            log.exception("chat turn failed (student=%s)", student["id"])
+            yield _event({"error": friendly_error(exc)})
 
     return StreamingResponse(sse(), media_type="text/event-stream")

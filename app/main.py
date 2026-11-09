@@ -7,6 +7,7 @@ arrive piece by piece: /api/students (P3), /api/chat (P4), /api/report (P10).
 Run:  .venv/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000
 """
 
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -17,6 +18,13 @@ from app.agent.graph import init_graph
 from app.api.chat import router as chat_router
 from app.api.students import router as students_router
 from app.data.db import init_db
+
+# Make prepright.* loggers visible in the console (found the hard way in
+# P9.3: warnings fired into a void because nothing configured the root
+# logger - "why is the error not logged" had TWO answers: nothing called
+# log in the failing path, AND no handler was configured).
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
 
 # `lifespan` is the modern startup/shutdown hook (FastAPI's older
