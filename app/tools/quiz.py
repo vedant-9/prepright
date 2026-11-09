@@ -101,7 +101,15 @@ def _verified_quiz(chapter: dict, difficulty: int, n: int) -> list[dict]:
 
 
 def generate_quiz_core(chapter_id: str, difficulty: int = 2, n: int = 5) -> dict:
-    """Cache-aware entry point (what the @tool wrapper and any API call)."""
+    """Cache-aware entry point (what the @tool wrapper and any API call).
+
+    ARG CLAMPS (output-side guardrail): the model supplies difficulty/n,
+    so they are clamped to sane ranges here - schema validation alone
+    permits difficulty=99, which would burn quota and traumatise a
+    13-year-old. Trust boundary: model INTENT yes, model PARAMETERS
+    clamped."""
+    difficulty = max(1, min(int(difficulty), 5))
+    n = max(1, min(int(n), 5))
     chapter = curriculum.find_chapter(chapter_id)
     if chapter is None:
         return {"error": f"unknown chapter_id: {chapter_id}"}

@@ -22,6 +22,7 @@ THE THREE CONCEPTS THIS FILE DEMONSTRATES:
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import AsyncIterator
 
@@ -38,6 +39,7 @@ from app.llm.gateway import (_fallback_provider, extract_text, get_chat_model,
 from app.tools import TOOLS
 
 TOOL_MAP = {t.name: t for t in TOOLS}
+log = logging.getLogger("prepright.agent")
 
 # Loop cap (measured in P9.1 E2E): a full quiz turn spends guardrail +
 # profile/curriculum/quiz rounds + 5 batched grade_answer calls +
@@ -229,6 +231,16 @@ async def stream_tutor_turn(student: dict, message: str,
     }
     inputs = {"messages": [HumanMessage(content=message)]}
 
+    # OUTPUT AUDIT (P9.1): streamed tokens cannot be un-sent, so a full
+    # output classifier on free text is a documented future piece (needs
+    # buffered streaming). What we CAN do cheaply: audit the assembled
+    # reply against the same blocklist as the input screen. A hit cannot
+    # retract the text, but it is logged loudly - for a pilot, silent
+    # failures are the real enemy; every hit becomes a data point to
+    # tighten prompts/screens.
+    final_text: list[str] = []
+    audit_hit = False
+
     async for mode, payload in graph.astream(inputs, config=config,
                                              stream_mode=["messages", "updates"]):
         if mode == "messages":
@@ -238,6 +250,7 @@ async def stream_tutor_turn(student: dict, message: str,
             if isinstance(chunk, AIMessageChunk) and meta.get("langgraph_node") == "agent":
                 text = extract_text(chunk.content)
                 if text:
+                    final_text.append(text)
                     yield {"delta": text}
         else:  # updates: {node_name: state_delta}
             for node, update in (payload or {}).items():
@@ -283,3 +296,10 @@ async def stream_tutor_turn(student: dict, message: str,
                                     for i, q in enumerate(blob["questions"])
                                 ],
                             }}
+
+    # post-turn output audit (see comment at final_text declaration)
+    if is_blocked("".join(final_text)):
+        log.warning("OUTPUT AUDIT: model reply tripped the blocklist; "
+                    "prompt/screens need tightening (thread=%s)",
+                    config["configurable"]["thread_id"])
+        yield {"audit": "flagged"}
