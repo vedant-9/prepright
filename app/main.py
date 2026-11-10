@@ -60,5 +60,14 @@ app.include_router(parent_router)
 app.include_router(chat_router)
 
 # Serve the web UI. html=True maps "/" -> web/index.html.
+# no-cache headers: the in-app browser's webview aggressively caches HTML,
+# which then pins old CSS versions - the root cause of "I don't see borders"
+# (computed style showed v=21 CSS loading from cached v=21 HTML).
+class NoCacheStaticFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return resp
+
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
-app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
+app.mount("/", NoCacheStaticFiles(directory=WEB_DIR, html=True), name="web")

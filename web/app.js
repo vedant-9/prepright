@@ -105,6 +105,7 @@ function enterChat(id, name) {
   els.chat.classList.remove("hidden");
   addAi(`Hi ${studentName}! I'm PrepRight, your math buddy. ` +
         `Which chapter shall we work on today?`);
+
 }
 
 // ---------- chat rendering ----------
@@ -207,11 +208,23 @@ async function send(presetText) {
           }
           throw new Error(payload.error);
         }
-        if (payload.done) continue;
+        if (payload.done) {
+          var chip = document.getElementById("quiz-chip");
+          if (chip) chip.disabled = false;
+          continue;
+        }
         if (payload.quiz) {
           // STRUCTURED quiz delivery: cards rendered from data, not prose.
-          // The answer key is not in this payload - it stays server-side.
+          // Kill the model's duplicate text quiz: keep only the intro text
+          // (everything before the first numbered question line)
+          var intro = received.split("\n").filter(function(line) {
+            var t = line.trim();
+            return t && !/^\d+[.)]/.test(t) && !/^[A-D]\)/.test(t);
+          }).join("\n").trim();
+          aiBubble.innerHTML = renderRich(intro || "Here is your quiz:");
           renderStructuredQuiz(payload.quiz);
+          var chip = document.getElementById("quiz-chip");
+          if (chip) chip.disabled = true;
           continue;
         }
         if (payload.tool) {
@@ -438,6 +451,11 @@ document.getElementById("parent-btn").onclick = async () => {
   });
   if (res.ok) location.href = "/parent.html";
   else pinError();
+};
+
+// quick-quiz chip (always available, next to input)
+document.getElementById("quiz-chip").onclick = () => {
+  if (!streaming && studentId) send("quiz me on a chapter I should practice");
 };
 
 // ---------- boot ----------
