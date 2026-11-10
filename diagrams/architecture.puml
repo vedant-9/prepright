@@ -1,76 +1,105 @@
-@startuml architecture
-!define RECTANGLE_COLOR #1E3A5F
-!define TOOL_COLOR #2D5F8A
-!define DATA_COLOR #2A4D3A
-!define LLM_COLOR #4A3A6B
-!define GUARD_COLOR #8B4513
-
-skinparam backgroundColor #0D1117
-skinparam defaultTextColor #E8EDF7
-skinparam defaultFontSize 13
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontSize 12
+skinparam roundCorner 10
 skinparam rectangle {
-  BackgroundColor #161B22
-  BorderColor #30363D
-  RoundCorner 12
+  BackgroundColor #F0F4F8
+  BorderColor #2C3E50
+  FontColor #2C3E50
 }
-skinparam arrow {
-  Color #58A6FF
-  FontSize 11
+skinparam database {
+  BackgroundColor #E8F5E9
+  BorderColor #2E7D32
+  FontColor #1B5E20
 }
 skinparam package {
-  BackgroundColor #161B22
-  BorderColor #30363D
+  BackgroundColor #FAFAFA
+  BorderColor #78909C
+  FontStyle bold
+}
+skinparam arrow {
+  Color #546E7A
+  FontSize 11
+  FontColor #546E7A
+}
+skinparam note {
+  BackgroundColor #FFF9C4
+  BorderColor #F9A825
+  FontColor #5D4037
 }
 
-title **PrepRight — Agent Architecture**\n<size:11>Agentic AI Math Tutor for CBSE Classes 5-10</size>
+title PrepRight - Agent Architecture
 
 package "Client" {
-  rectangle "Chat UI\n<back:#1E3A5F>quiz cards + tool chips</back>" as UI
-  rectangle "Parent Dashboard\n<back:#1E3A5F>PrepScore + reports</back>" as PARENT
+  rectangle "Kid Picker\n(avatar cards)" as PICKER
+  rectangle "Chat UI\nquiz cards + grading" as UI
+  rectangle "Parent Dashboard\nPrepScore + reports" as PARENT
 }
 
 package "FastAPI Server" {
-  rectangle "Guardrail Node\n<back:#8B4513>PII redaction + topic screen</back>\n<color:#FF6B6B>zero-token exits</color>" as GUARD #RECTANGLE_COLOR
-  rectangle "Agent Node\n<back:#2D5F8A>LLM + 8 tools bound</back>\n<color:#58A6FF>conditional edge: tool_calls?</color>" as AGENT #RECTANGLE_COLOR
-  rectangle "Tools Node\n<back:#2D5F8A>executes OUR code</back>\n<color:#3FCF8E>errors = results, not crashes</color>" as TOOLS #RECTANGLE_COLOR
+  rectangle "Guardrail\nPII redaction\n+ regex fast-pass\n+ non-math fast-reject\n+ LLM classifier" as GUARD
+  rectangle "Agent Node\nLLM + 8 tools\n(recursion_limit=16)" as AGENT
+  rectangle "Tools Node\nreal code execution\n+ identity injection" as TOOLS
 }
 
-package "LLM Gateway\n<color:#C084FC>provider firewall</color>" as GW {
-  rectangle "gpt-oss-120b\n<color:#3FCF8E>primary</color>" as M1 #LLM_COLOR
-  rectangle "gpt-oss-20b\n<color:#FFB84D>fallback (own quota)</color>" as M2 #LLM_COLOR
-  rectangle "Gemini 3.5\n<color:#9AA7C4>cross-provider</color>" as M3 #LLM_COLOR
+package "LLM Gateway (firewall)" {
+  rectangle "gpt-oss-120b" as M1
+  rectangle "gpt-oss-20b\n(same-provider)" as M2
+  rectangle "Gemini 3.5 Flash\n(cross-provider)" as M3
 }
 
-package "Tools" {
-  rectangle "generate_quiz\n<back:#2D5F8A>sympy-verified</back>" as T1 #TOOL_COLOR
-  rectangle "grade_quiz\n<back:#2D5F8A>server-side grading</back>" as T2 #TOOL_COLOR
-  rectangle "lookup_concept\n<back:#2D5F8A>RAG retrieval</back>" as T3 #TOOL_COLOR
-  rectangle "calculate\n<back:#2D5F8A>sympy arithmetic</back>" as T4 #TOOL_COLOR
-  rectangle "record_progress\n<back:#2D5F8A>SQLite + clamps</back>" as T5 #TOOL_COLOR
+package "Tools (8)" #F3E5F5 {
+  rectangle "generate_quiz\nsympy-verified" as T1
+  rectangle "grade_quiz\none server-side call" as T2
+  rectangle "grade_answer\nsingle-question" as T3
+  rectangle "lookup_concept\nRAG retrieval" as T4
+  rectangle "calculate\nsympy arithmetic" as T5
+  rectangle "record_progress\nclamped writes" as T6
+  rectangle "get_student_profile\nmastery history" as T7
+  rectangle "get_curriculum\nchapter + marks" as T8
 }
 
 package "Data" {
-  database "SQLite\n<back:#2A4D3A>progress + parents</back>" as DB #DATA_COLOR
-  database "curriculum.json\n<back:#2A4D3A>versioned spine</back>" as CURR #DATA_COLOR
-  database "checkpoints.db\n<back:#2A4D3A>per-student memory</back>" as CKPT #DATA_COLOR
+  database "SQLite\nprogress + parents\n+ auth_sessions" as DB
+  database "checkpoints.db\nper-student\nconversation memory" as CKPT
+  database "curriculum.json\nversioned 5-10" as CURR
+  database "math_concepts.json\n15 RAG cards" as CONCEPTS
+  database "quiz cache\n(24h TTL)" as QCACHE
+  database "embeddings cache\n(disk, content-hash)" as EMB
 }
 
-UI -down-> GUARD : <color:#58A6FF>SSE stream
-GUARD -down-> AGENT : <color:#3FCF8E>pass
-GUARD -left-> UI : <color:#FF6B6B>blocked (canned)
-AGENT -down-> TOOLS : <color:#58A6FF>tool_call
-TOOLS -up-> AGENT : <color:#3FCF8E>ToolMessage (loop back)
+PICKER -down-> UI : tap avatar
+UI -down-> GUARD : SSE stream
+GUARD -down-> AGENT : pass
+AGENT -down-> TOOLS : tool_call
+TOOLS -up-> AGENT : result (loop)
 AGENT -right-> M1
-M1 -down-> M2 : <color:#FF6B6B>fail
-M2 -down-> M3 : <color:#FF6B6B>fail
+M1 -down-> M2 : fail
+M2 -down-> M3 : fail
 TOOLS --> T1
 TOOLS --> T2
 TOOLS --> T3
 TOOLS --> T4
 TOOLS --> T5
-T1 --> DB
+TOOLS --> T6
+TOOLS --> T7
+TOOLS --> T8
+T1 --> QCACHE
 T1 --> CURR
-T3 --> CURR
-T5 --> DB
-PARENT -down-> DB : <color:#58A6FF>session auth
+T4 --> CONCEPTS
+T4 --> EMB
+T6 --> DB
+T7 --> DB
+PARENT --> DB : Bearer auth
+note right of TOOLS
+  student_id injected
+  server-side (model
+  never supplies identity)
+end note
+note right of GUARD
+  Off-topic: regex pass ->
+  fast-reject -> LLM
+  classifier (fail-open)
+end note
 @enduml
