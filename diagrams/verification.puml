@@ -1,34 +1,78 @@
-@startuml verification
-skinparam backgroundColor #0D1117
-skinparam defaultTextColor #E8EDF7
-skinparam defaultFontSize 13
-skinparam activity {
-  BackgroundColor #161B22
-  BorderColor #30363D
-  DiamondBackgroundColor #2D1B3D
-  DiamondBorderColor #C084FC
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontSize 12
+skinparam roundCorner 10
+skinparam rectangle {
+  BackgroundColor #F0F4F8
+  BorderColor #2C3E50
+  FontColor #2C3E50
+}
+skinparam database {
+  BackgroundColor #E8F5E9
+  BorderColor #2E7D32
+  FontColor #1B5E20
+}
+skinparam package {
+  BackgroundColor #FAFAFA
+  BorderColor #78909C
+  FontStyle bold
 }
 skinparam arrow {
-  Color #58A6FF
-  FontSize 12
+  Color #546E7A
+  FontSize 11
+  FontColor #546E7A
+}
+skinparam note {
+  BackgroundColor #FFF9C4
+  BorderColor #F9A825
+  FontColor #5D4037
 }
 
-title **Compute-Don't-Trust Verification Pipeline**\n<size:11>The LLM never supplies answers — sympy computes them</size>
+title PrepRight - Verification Pipeline (Compute, Don't Trust)
 
-start
-:LLM drafts question + machine-readable spec\n<color:#9AA7C4>example: {"type": "quadratic_roots", "a": 1, "b": -5, "c": 6}</color>;
-:Sympy solves the spec\n<color:#3FCF8E>deterministic ground truth</color>;
-if (Coherence check:\nspec numbers appear\nin question text?) then (yes)
-  if (Sympy solution\nvalid?) then (yes)
-    :Code generates distractors\n<color:#FFB84D>sign flips, sum/product confusion,\noff-by-one, GCD/LCM swap</color>;
-    :Verified question served\n<color:#3FCF8E>as structured SSE event</color>;
-    stop
-  else (no)
-    :Drop question\n<color:#FF6B6B>never serve unverified math</color>;
-    stop
-  endif
-else (no)
-  :Drop question\n<color:#FF6B6B>spec/text mismatch</color>;
-  stop
-endif
+left to right direction
+
+package "Input" {
+  rectangle "Clamp args\ndifficulty 1-5\ncount <= 5" as CLAMP
+}
+
+package "Cache" {
+  database "quiz cache\n24h TTL\nglobal (not per-user)" as CACHE
+}
+
+package "Draft (LLM)" {
+  rectangle "question text\n+ machine-readable spec\nno answers, ever" as DRAFT
+}
+
+package "Verify (code)" #F3E5F5 {
+  rectangle "SymPy solve\ndeterministic answer\narithmetic, equations,\nquadratics, GCD/LCM" as SOLVE
+  rectangle "Coherence check\nspec numbers must appear\nin question text" as COHERENT
+  rectangle "Distractors\nmisconception rules\n(code, not model)" as DISTRACT
+}
+
+package "Outcome" {
+  rectangle "verified quiz\nserved to student" as SERVE
+  rectangle "drop question" as DROP
+  rectangle "retry or error" as RETRY
+}
+
+CLAMP --> CACHE
+CACHE --> DRAFT : miss
+CACHE --> SERVE : cache hit
+DRAFT --> SOLVE
+SOLVE --> COHERENT
+COHERENT --> DISTRACT : pass
+COHERENT -down-> DROP : fail
+DROP -down-> RETRY
+DISTRACT --> SERVE
+
+note right of DRAFT
+  The model drafts,
+  code decides. Every
+  answer and every
+  distractor comes
+  from SymPy, never
+  from the LLM.
+end note
 @enduml
