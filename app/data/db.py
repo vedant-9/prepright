@@ -16,8 +16,6 @@ DESIGN NOTES (why it looks this way):
 
 4. No ORM (no SQLAlchemy): the schema is 4 tables; raw SQL with
    parameterized queries is transparent and removes a dependency.
-   (Interview note: "I chose boring tech deliberately for a POC —
-   the interesting complexity in this app is in the agent, not the DB.")
 """
 
 import sqlite3
@@ -91,6 +89,15 @@ CREATE TABLE IF NOT EXISTS reports (
 
 CREATE INDEX IF NOT EXISTS idx_progress_student_chapter
     ON progress_events (student_id, chapter_id);
+
+-- Session tokens: issued on PIN login, required on all parent API calls.
+-- Tokens expire after 24 hours; one per parent (new login revokes old).
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    token      TEXT PRIMARY KEY,
+    parent_id  INTEGER NOT NULL REFERENCES parents(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at TEXT NOT NULL
+);
 """
 
 
