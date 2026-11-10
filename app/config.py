@@ -34,7 +34,7 @@ class Settings:
     #    50-120s to first token (thinking + free-tier queueing);
     #    3.5-flash measured 1.1s. Benchmark before choosing.
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
-    groq_model: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    groq_model: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
     # Same-provider fallback: Groq rate limits are PER-MODEL, so a second
     # Groq model has its own quota bucket.
     groq_fallback_model: str = os.getenv("GROQ_FALLBACK_MODEL", "openai/gpt-oss-20b")
