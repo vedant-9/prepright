@@ -28,7 +28,7 @@ class Settings:
     groq_api_key: str = os.getenv("GROQ_API_KEY", "")
 
     # Flash-tier models: cheap + fast, plenty for a tutoring agent.
-    # TWO real-world lessons baked in (both hit during /):
+    # TWO real-world lessons baked in (both hit mid-project):
     # 1. Model IDs get RETIRED (gemini-2.0-flash 404'd mid-project).
     # 2. Same tier family, wildly different latency: 3.8-flash took
     #    50-120s to first token (thinking + free-tier queueing);
