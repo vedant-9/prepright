@@ -1,6 +1,7 @@
 /* PrepRight chat — deliberately dependency-free (no CDN, works offline).
    Design tokens up top so restyling later is one-place-only. */
 :root {
+  --border: #3a4a6b;
   --bg: #0f1420;
   --panel: #1a2233;
   --bubble-user: #2f6df6;
@@ -135,7 +136,7 @@ main {
 .gate input { width: 100%; margin: 8px 0; }
 .error { color: #ff6b6b; font-size: 0.9rem; }
 .dash-actions { display: flex; gap: 8px; margin-bottom: 20px; }
-.kid-card { margin-bottom: 16px; padding: 24px; border-radius: 14px; background: var(--card); border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.kid-card { margin-bottom: 16px; padding: 24px; border-radius: 14px; background: #1e2840; border: 2px solid #4a6fa5; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
 .kid-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .kid-identity { display: flex; align-items: center; gap: 12px; }
 .kid-identity h3 { margin: 0; font-size: 1.15rem; }
@@ -155,7 +156,7 @@ main {
 .action-btn { padding: 8px 18px; border-radius: 8px; font: inherit; font-size: 0.9rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
 .action-btn.primary { background: var(--accent); border: none; color: #201200; font-weight: 600; }
 .action-btn.primary:hover { filter: brightness(1.1); }
-.action-btn:not(.primary) { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.action-btn:not(.primary) { background: transparent; border: 1px solid #3a4a6b; color: var(--text); }
 .action-btn:not(.primary):hover { border-color: var(--accent); }
 .report { margin-top: 16px; padding: 16px; background: rgba(0,0,0,0.2); border-radius: 8px; }
 .report h4 { margin: 0 0 8px; color: var(--accent); }
@@ -176,3 +177,14 @@ main {
 .current-kid { color: var(--accent); font-weight: 500; }
 .header-actions { display: flex; gap: 6px; align-items: center; }
 .avatar-sm { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #201200; font-weight: 700; align-items: center; justify-content: center; font-size: 0.85rem; }
+
+/* nav buttons (restored - were accidentally removed during border cleanup) */
+.ghost-btn { background: transparent; border: 1px solid #4a6fa5; border-radius: 8px; padding: 6px 14px; color: var(--text); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font: inherit; font-size: 0.9rem; }
+.ghost-btn:hover { border-color: var(--accent); }
+.nav-btn { background: transparent; border: 1px solid #4a6fa5; border-radius: 8px; padding: 6px 14px; color: var(--muted); text-decoration: none; display: inline-flex; align-items: center; cursor: pointer; font: inherit; font-size: 0.9rem; }
+.nav-btn:hover { border-color: var(--accent); color: var(--text); }
+
+/* quick-quiz chip (compact, always visible next to input) */
+.quiz-chip { background: rgba(255,184,77,0.12); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 12px; color: var(--accent); font: inherit; font-size: 0.9rem; font-weight: 500; cursor: pointer; flex-shrink: 0; white-space: nowrap; }
+.quiz-chip:hover { background: rgba(255,184,77,0.2); }
+.quiz-chip:disabled { opacity: 0.4; cursor: default; }

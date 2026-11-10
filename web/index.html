@@ -7,7 +7,7 @@
   <!-- ?v= is cache busting: StaticFiles sends no cache headers, so the
        browser would otherwise heuristically serve stale JS after edits.
        Bump the version on every change to web/ assets. -->
-  <link rel="stylesheet" href="style.css?v=36" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header>
@@ -21,7 +21,6 @@
   <div id="picker" class="picker hidden">
     <h2>Who's learning?</h2>
     <div id="kid-cards" class="kid-cards"></div>
-    <button id="manage-kids-btn" class="ghost">+ Add / manage (parent)</button>
   </div>
 
   <div id="onboarding" class="onboarding hidden">
@@ -42,6 +41,7 @@
     <div id="messages" aria-live="polite"></div>
     <div id="status" class="status hidden">PrepRight is thinking…</div>
     <form id="composer">
+      <button type="button" id="quiz-chip" class="quiz-chip" title="Quick quiz">🎯 Quiz</button>
       <input id="input" placeholder="Ask about any chapter — e.g. 'help me with quadratic equations'" autocomplete="off" maxlength="2000" />
       <button type="submit" id="send">Send</button>
     </form>
@@ -55,6 +55,6 @@
       <p id="pin-error" class="error hidden"></p>
     </div>
   </div>
-  <script src="app.js?v=36"></script>
+  <script src="app.js"></script>
 </body>
 </html>
