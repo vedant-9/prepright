@@ -25,34 +25,56 @@ const els = {
   composer: document.getElementById("composer"),
   input: document.getElementById("input"),
   send: document.getElementById("send"),
-  select: document.getElementById("student-select"),
-  newBtn: document.getElementById("new-student-btn"),
 };
 
 let studentId = null;
+let allKids = [];
 let studentName = "";
 let streaming = false;
 
 // ---------- onboarding ----------
 
 async function loadStudents() {
-  const res = await fetch("/api/students");
-  const students = await res.json();
-  els.select.innerHTML =
-    `<option value="">— who's learning? —</option>` +
-    students
-      .map((s) => `<option value="${s.id}">${s.name} (Class ${s.grade})</option>`)
-      .join("");
-  els.select.onchange = () => {
-    const opt = els.select.selectedOptions[0];
-    if (els.select.value) enterChat(Number(els.select.value), opt.textContent.split(" (")[0]);
-  };
+  // AUTH SCOPING: only THIS parent's kids. UX rules:
+  // 1 kid -> straight into chat; 2+ -> profile CARDS (kids tap, not dropdowns);
+  // returning -> last kid remembered; Switch button always available.
+  const saved = localStorage.getItem("pr_parent");
+  if (!saved) { location.href = "/parent.html"; return; }
+  const parent = JSON.parse(saved);
+  const students = await (await fetch(`/api/parent/${parent.id}/kids`)).json();
+  allKids = students;   // kept for the PIN-gated switcher
+
+  const picked = sessionStorage.getItem("pr_kid");       // deep-link from dashboard
+  if (picked) {
+    sessionStorage.removeItem("pr_kid");
+    const kid = students.find((s) => s.id === Number(picked));
+    if (kid) return enterChat(kid.id, kid.name);
+  }
+  // hide Switch when there's nothing to switch to (found live: one-kid
+  // users clicked a button that correctly did nothing, and correctly felt broken)
+  if (students.length === 1) return enterChat(students[0].id, students[0].name);
+  // SHARED DEVICE RULE: with 2+ kids, ALWAYS show the picker on open.
+  // "Remember last kid" would auto-enter the wrong sibling's chat when
+  // they share a device at different times - one tap beats wrong memory.
+  // Single-kid families skip the picker entirely (zero taps).
+  showPicker(students);
 }
 
-els.newBtn.onclick = () => {
-  els.onboarding.classList.remove("hidden");
-  els.obName.focus();
-};
+function showPicker(students) {
+  document.getElementById("chat").classList.add("hidden");
+  const picker = document.getElementById("picker");
+  picker.classList.remove("hidden");
+  const cards = document.getElementById("kid-cards");
+  cards.innerHTML = "";
+  students.forEach((s) => {
+    const b = document.createElement("button");
+    b.className = "kid-card-btn";
+    b.innerHTML = `<span class="avatar">${s.name[0].toUpperCase()}</span>
+                   <span>${s.name}</span><small>Class ${s.grade}</small>`;
+    b.onclick = () => enterChat(s.id, s.name);
+    cards.appendChild(b);
+  });
+}
 
 els.obForm.onsubmit = async (e) => {
   e.preventDefault();
@@ -65,11 +87,18 @@ els.obForm.onsubmit = async (e) => {
   const s = await res.json();
   els.onboarding.classList.add("hidden");
   await loadStudents();
-  els.select.value = s.id;
   enterChat(s.id, s.name);
 };
 
 function enterChat(id, name) {
+  localStorage.setItem("pr_last_kid", id);
+  const bar = document.getElementById("picker");
+  if (bar) bar.classList.add("hidden");
+  // avatar chip: unambiguous who's studying (visual + text + class)
+  const kid = allKids.find((s) => s.id === id);
+  // standard navbar: avatar + name only; class lives in chat context, not chrome
+  document.getElementById("current-kid").innerHTML =
+    `<span class="avatar-sm">${name[0].toUpperCase()}</span> <b>${name}</b>`;
   studentId = id;
   studentName = name;
   els.messages.innerHTML = "";
@@ -372,6 +401,43 @@ function renderStructuredQuiz(quiz) {
 els.composer.onsubmit = (e) => {
   e.preventDefault();
   send();
+};
+
+// (Switch button removed: kid mode has ONE exit - For Parents.
+//  The parent dashboard IS the kid switcher, per Khan Academy Kids pattern.)
+
+// ---------- PIN modal (prompt()/alert() are dead in webviews) ----------
+function askPin(title) {
+  return new Promise((resolve) => {
+    const m = document.getElementById("pin-modal");
+    const input = document.getElementById("pin-input");
+    const err = document.getElementById("pin-error");
+    document.getElementById("pin-title").textContent = title;
+    input.value = ""; err.classList.add("hidden");
+    m.classList.remove("hidden"); input.focus();
+    const done = (val) => { m.classList.add("hidden"); resolve(val); };
+    document.getElementById("pin-submit").onclick = () => done(input.value.trim() || null);
+    input.onkeydown = (e) => { if (e.key === "Enter") done(input.value.trim() || null); };
+    m.onclick = (e) => { if (e.target === m) done(null); };
+  });
+}
+function pinError() {
+  document.getElementById("pin-error").classList.remove("hidden");
+  document.getElementById("pin-error").textContent = "Wrong PIN";
+  document.getElementById("pin-modal").classList.remove("hidden");
+}
+
+// gear: PIN-gated jump to the parent dashboard (same device, kid-safe exit)
+document.getElementById("parent-btn").onclick = async () => {
+  const pin = await askPin("Parent PIN");
+  if (!pin) return;
+  const parent = JSON.parse(localStorage.getItem("pr_parent") || "{}");
+  const res = await fetch("/api/parent/login", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parent_id: parent.id, pin }),
+  });
+  if (res.ok) location.href = "/parent.html";
+  else pinError();
 };
 
 // ---------- boot ----------

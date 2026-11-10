@@ -55,15 +55,25 @@ class KidIn(BaseModel):
 
 # ---------------------------------------------------------------- endpoints
 
-@router.post("/parent/signup", status_code=201)
+@router.post("/parent/signup")
 def parent_signup(body: ParentIn) -> dict:
+    """Find-or-create: known name + right PIN = login; known name + wrong
+    PIN = 401; new name = create. One endpoint, no duplicates."""
     with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id, name, pin_hash FROM parents WHERE name = ?",
+            (body.name.strip(),)).fetchone()
+        if row is not None:
+            if row["pin_hash"] != _hash_pin(body.pin):
+                raise HTTPException(status_code=401, detail="wrong PIN for this name")
+            return {"parent": {"id": row["id"], "name": row["name"]},
+                    "kids": _kids_of(row["id"])}
         cur = conn.execute(
             "INSERT INTO parents (name, pin_hash) VALUES (?, ?)",
             (body.name.strip(), _hash_pin(body.pin)))
-        row = conn.execute(
+        new = conn.execute(
             "SELECT id, name FROM parents WHERE id = ?", (cur.lastrowid,)).fetchone()
-    return {"parent": dict(row), "kids": []}
+    return {"parent": dict(new), "kids": []}
 
 
 @router.post("/parent/login")
