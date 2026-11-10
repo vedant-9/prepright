@@ -13,3 +13,6 @@ data/
 # OS noise
 .DS_Store
 Thumbs.db
+
+# Private prep docs - not for public repo
+docs/

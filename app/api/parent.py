@@ -13,15 +13,47 @@ A measurement of practice coverage, never an exam-result promise.
 
 import hashlib
 import json
-from datetime import date
+import secrets
+from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from app.data import curriculum
 from app.data.db import get_conn
 
 router = APIRouter(prefix="/api", tags=["parent"])
+
+
+# ---------------------------------------------------------------- sessions
+
+def _create_session(parent_id: int) -> str:
+    """Issue a session token (24h expiry, replaces any old one)."""
+    token = secrets.token_hex(24)
+    expires = (datetime.utcnow() + timedelta(hours=24)).isoformat()
+    with get_conn() as conn:
+        conn.execute("DELETE FROM auth_sessions WHERE parent_id = ?", (parent_id,))
+        conn.execute(
+            "INSERT INTO auth_sessions (token, parent_id, expires_at) VALUES (?, ?, ?)",
+            (token, parent_id, expires))
+    return token
+
+
+def require_parent(authorization: str = Header(None)) -> int:
+    """FastAPI dependency: validates the Bearer token, returns parent_id.
+    Raises 401 if missing, invalid, or expired."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="missing session token")
+    token = authorization.replace("Bearer ", "").strip()
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT parent_id, expires_at FROM auth_sessions WHERE token = ?",
+            (token,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=401, detail="invalid session")
+    if row["expires_at"] < datetime.utcnow().isoformat():
+        raise HTTPException(status_code=401, detail="session expired")
+    return row["parent_id"]
 
 
 # ---------------------------------------------------------------- helpers
@@ -67,13 +99,14 @@ def parent_signup(body: ParentIn) -> dict:
             if row["pin_hash"] != _hash_pin(body.pin):
                 raise HTTPException(status_code=401, detail="wrong PIN for this name")
             return {"parent": {"id": row["id"], "name": row["name"]},
-                    "kids": _kids_of(row["id"])}
+                    "kids": _kids_of(row["id"]),
+                    "token": _create_session(row["id"])}
         cur = conn.execute(
             "INSERT INTO parents (name, pin_hash) VALUES (?, ?)",
             (body.name.strip(), _hash_pin(body.pin)))
         new = conn.execute(
             "SELECT id, name FROM parents WHERE id = ?", (cur.lastrowid,)).fetchone()
-    return {"parent": dict(new), "kids": []}
+    return {"parent": dict(new), "kids": [], "token": _create_session(new["id"])}
 
 
 @router.post("/parent/login")
@@ -95,7 +128,7 @@ def list_kids(parent_id: int) -> list[dict]:
 
 
 @router.post("/parent/{parent_id}/kids", status_code=201)
-def add_kid(parent_id: int, body: KidIn) -> dict:
+def add_kid(parent_id: int, body: KidIn, _auth: int = Depends(require_parent)) -> dict:
     with get_conn() as conn:
         cur = conn.execute(
             "INSERT INTO students (parent_id, name, grade, board) VALUES (?, ?, ?, ?)",
@@ -106,8 +139,28 @@ def add_kid(parent_id: int, body: KidIn) -> dict:
     return dict(row)
 
 
+@router.delete("/parent/{parent_id}/kids/{student_id}")
+def delete_kid(parent_id: int, student_id: int,
+               _auth: int = Depends(require_parent)) -> dict:
+    """Remove a kid profile and all associated data (progress, sessions).
+    Parent PIN re-authentication recommended for production; pilot = token auth."""
+    with get_conn() as conn:
+        # verify kid belongs to this parent
+        row = conn.execute(
+            "SELECT id FROM students WHERE id = ? AND parent_id = ?",
+            (student_id, parent_id)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="kid not under this parent")
+        # cascade cleanup
+        conn.execute("DELETE FROM progress_events WHERE student_id = ?", (student_id,))
+        conn.execute("DELETE FROM sessions WHERE student_id = ?", (student_id,))
+        conn.execute("DELETE FROM reports WHERE student_id = ?", (student_id,))
+        conn.execute("DELETE FROM students WHERE id = ?", (student_id,))
+    return {"deleted": True}
+
+
 @router.get("/parent/{parent_id}/dashboard")
-def dashboard(parent_id: int) -> dict:
+def dashboard(parent_id: int, _auth: int = Depends(require_parent)) -> dict:
     """Mastery per kid per chapter + PrepScore + struggle flags."""
     kids = _kids_of(parent_id)
     out = []
@@ -136,7 +189,7 @@ def dashboard(parent_id: int) -> dict:
 
 
 @router.post("/parent/{parent_id}/report/{student_id}")
-def generate_report(parent_id: int, student_id: int) -> dict:
+def generate_report(parent_id: int, student_id: int, _auth: int = Depends(require_parent)) -> dict:
     """Weekly report card: LLM narrative over the mastery data, stored
     immutable (one per student per week)."""
     dash = dashboard(parent_id)
@@ -153,6 +206,18 @@ def generate_report(parent_id: int, student_id: int) -> dict:
         wins: list[str]
         focus_areas: list[str]
         suggested_activity: str
+
+    # NO-DATA GUARD: a kid with zero practice gets a "not started yet"
+    # message, never a hallucinated progress report (the LLM will happily
+    # fabricate "completed all assignments" for an empty dataset)
+    if not kid["chapters"]:
+        return {"week": dash["week"], "prepscore": kid["prepscore"],
+                "chapters": [], "report": {
+                    "headline": "No practice yet",
+                    "summary": f"{kid['name']} hasn't started any practice sessions. "
+                               "Once they complete a quiz, this report will show real progress.",
+                    "wins": [], "focus_areas": [],
+                    "suggested_activity": "Start with a quick quiz from the kid's tutor page."}}
 
     report = generate_structured(Report, [HumanMessage(content=(
         f"Write a warm, honest weekly report for a parent about their child "
@@ -172,7 +237,7 @@ def generate_report(parent_id: int, student_id: int) -> dict:
 
 
 @router.get("/parent/{parent_id}/reports/{student_id}")
-def get_reports(parent_id: int, student_id: int) -> list[dict]:
+def get_reports(parent_id: int, student_id: int, _auth: int = Depends(require_parent)) -> list[dict]:
     with get_conn() as conn:
         rows = conn.execute(
             "SELECT content_json FROM reports WHERE student_id = ? "

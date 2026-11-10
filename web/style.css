@@ -192,3 +192,6 @@ main {
 /* graded quiz options: visual feedback */
 .opt-btn.correct { border-color: #3fcf8e !important; background: rgba(63,207,142,0.15) !important; color: #3fcf8e; }
 .opt-btn.wrong { border-color: #ff6b6b !important; background: rgba(255,107,107,0.15) !important; color: #ff6b6b; }
+
+.action-btn.danger { border-color: #ff6b6b; color: #ff6b6b; }
+.action-btn.danger:hover { background: rgba(255,107,107,0.1); }

@@ -9,8 +9,7 @@ THE TWO-PHASE RAG PATTERN (this is the canonical shape):
 
 WHY NO VECTOR DATABASE: 15 cards x ~768 dims is 15 dot products - a Python
 loop answers in microseconds. FAISS/pgvector/Pinecone pay off at ~100k+
-vectors; before that they are a moving part. (Interview note: this module
-is the documented swap-in point.)
+vectors; before that they are a moving part.
 
 FALLBACK: if the embedding API is unavailable (no key / quota), retrieval
 degrades to lexical scoring (keyword overlap) instead of failing - the

@@ -2,12 +2,15 @@
    this page IS the PIN gate; the tutor (/) never requires one. */
 
 let parentId = null;
+let authToken = null;
 
 const $ = (id) => document.getElementById(id);
 
 async function api(path, opts = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (authToken) headers["Authorization"] = "Bearer " + authToken;
   const res = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
+    headers,
     ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
@@ -35,10 +38,15 @@ $("login-form").onsubmit = async (e) => {
     const out = await api("/api/parent/signup",
       { method: "POST", body: { name: name || "Parent", pin } });
     parentId = out.parent.id;
-    localStorage.setItem("pr_parent", JSON.stringify({ id: parentId, name: out.parent.name }));
+    authToken = out.token || null;
+    localStorage.setItem("pr_parent", JSON.stringify({ id: parentId, name: out.parent.name, token: authToken }));
     showDash();
   } catch (err) {
-    $("gate-error").textContent = err.message;
+    let msg = err.message;
+    if (msg.includes("wrong PIN")) msg = "That PIN doesn’t match this name. Try again or use a new name.";
+    else if (msg.includes("4") && msg.includes("digit")) msg = "PIN must be exactly 4 digits.";
+    else if (msg.includes("session")) msg = "Session expired — just sign in again.";
+    $("gate-error").textContent = msg;
     $("gate-error").classList.remove("hidden");
   }
 };
@@ -47,15 +55,30 @@ $("login-form").onsubmit = async (e) => {
 async function showDash() {
   $("gate").classList.add("hidden");
   $("dash").classList.remove("hidden");
+  document.getElementById("signout-btn").style.display = "";
   await loadKids();
 }
 
+document.getElementById("signout-btn").onclick = () => {
+  localStorage.removeItem("pr_parent");
+  localStorage.removeItem("pr_last_kid");
+  authToken = null;
+  parentId = null;
+  location.reload();
+};
+
 async function loadKids() {
-  const data = await api(`/api/parent/${parentId}/dashboard`);
+  let data;
+  try {
+    data = await api(`/api/parent/${parentId}/dashboard`);
+  } catch (err) {
+    $("kids").innerHTML = '<p class="muted">Could not load: ' + err.message + '</p>';
+    return;
+  }
   const wrap = $("kids");
   wrap.innerHTML = "";
   if (!data.kids.length) {
-    wrap.innerHTML = '<p class="muted">No kid profiles yet — add one to start.</p>';
+    wrap.innerHTML = '<div class="card" style="text-align:center;padding:40px"><h3>Add your first kid to start</h3><p class="muted">PrepRight needs at least one kid profile before you can start tutoring.</p></div>';
     return;
   }
   for (const kid of data.kids) {
@@ -81,6 +104,7 @@ async function loadKids() {
       <div class="kid-actions">
         <a href="/" class="action-btn primary" onclick="sessionStorage.setItem('pr_kid','${kid.id}')">Start tutoring</a>
         <button class="action-btn" onclick="genReport(${kid.id}, this)">Weekly report</button>
+        <button class="action-btn danger" onclick="deleteKid(${kid.id}, '${kid.name}')" title="Remove profile">Remove</button>
       </div>
       <div class="report hidden" id="report-${kid.id}"></div>`;
     wrap.appendChild(el);
@@ -107,7 +131,7 @@ async function genReport(kidId, btn) {
       <p><strong>Wins:</strong> ${r.report.wins.join(" · ")}</p>
       <p><strong>Focus:</strong> ${r.report.focus_areas.join(" · ")}</p>
       <p><strong>Try this:</strong> ${r.report.suggested_activity}</p>`;
-  } catch (err) { alert(err.message); }
+  } catch (err) { btn.textContent = "Failed: " + err.message; setTimeout(function(){ btn.disabled = false; btn.textContent = "Weekly report"; }, 3000); }
   btn.disabled = false; btn.textContent = "📄 Weekly report";
 }
 
@@ -116,14 +140,36 @@ $("add-kid-btn").onclick = () => $("kid-modal").classList.remove("hidden");
 $("kid-modal").onclick = (e) => { if (e.target === $("kid-modal")) $("kid-modal").classList.add("hidden"); };
 $("kid-form").onsubmit = async (e) => {
   e.preventDefault();
-  await api(`/api/parent/${parentId}/kids`, { method: "POST",
-    body: { name: $("kid-name").value, grade: Number($("kid-grade").value) } });
-  $("kid-modal").classList.add("hidden");
-  $("kid-name").value = "";
-  loadKids();
+  try {
+    await api(`/api/parent/${parentId}/kids`, { method: "POST",
+      body: { name: $("kid-name").value, grade: Number($("kid-grade").value) } });
+    $("kid-modal").classList.add("hidden");
+    $("kid-name").value = "";
+    loadKids();
+  } catch (err) {
+    $("pin-error").textContent = "Could not add kid: " + err.message;
+  }
 };
 $("refresh-btn").onclick = loadKids;
 
-// restore session
+// restore session — only if a valid token exists (old sessions without
+// tokens came from before auth was added and must re-login)
 const saved = localStorage.getItem("pr_parent");
-if (saved) { parentId = JSON.parse(saved).id; showDash(); }
+if (saved) {
+  const s = JSON.parse(saved);
+  if (s.token) {
+    parentId = s.id;
+    authToken = s.token;
+    showDash();
+  } else {
+    // stale session (no token) — clear and show login
+    localStorage.removeItem("pr_parent");
+  }
+}
+
+
+async function deleteKid(kidId, name) {
+  if (!confirm(`Remove ${name}'s profile and all their progress? This cannot be undone.`)) return;
+  await api(`/api/parent/${parentId}/kids/${kidId}`, { method: "DELETE" });
+  loadKids();
+}

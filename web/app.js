@@ -12,6 +12,9 @@ const TOOL_LABELS = {
   get_student_profile: "Reviewing your progress...",
   record_progress: "Saving your progress...",
   grade_answer: "Checking your answer...",
+  grade_quiz: "Grading your quiz...",
+  lookup_concept: "Finding the right explanation...",
+  calculate: "Calculating...",
 };
 
 const els = {
@@ -77,19 +80,7 @@ function showPicker(students) {
   });
 }
 
-els.obForm.onsubmit = async (e) => {
-  e.preventDefault();
-  const res = await fetch("/api/students", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: els.obName.value, grade: Number(els.obGrade.value) }),
-  });
-  if (!res.ok) return alert("Could not create student");
-  const s = await res.json();
-  els.onboarding.classList.add("hidden");
-  await loadStudents();
-  enterChat(s.id, s.name);
-};
+// (onboarding form removed — kid creation is on the parent page)
 
 function enterChat(id, name) {
   localStorage.setItem("pr_last_kid", id);
@@ -222,10 +213,9 @@ async function send(presetText) {
           continue;
         }
         if (payload.quiz) {
-          // RENDER IMMEDIATELY: cards show as soon as generated.
-          // Text filter (in delta handler) removes the model's duplicate.
-          pendingQuiz = true;  // flag only, for the text filter
-          renderStructuredQuiz(payload.quiz);
+          // BUFFER quiz data: render cards on FIRST text delta so the
+          // intro appears above the cards (correct visual order)
+          pendingQuiz = payload.quiz;
           var chip = document.getElementById("quiz-chip");
           if (chip) chip.disabled = true;
           continue;
@@ -252,6 +242,10 @@ async function send(presetText) {
             }).join("\n");
           }
           aiBubble.innerHTML = renderRich(display || "...");
+          if (pendingQuiz && pendingQuiz !== true && display.trim().length > 10) {
+            renderStructuredQuiz(pendingQuiz);
+            pendingQuiz = true;  // flag: already rendered, keep filter active
+          }
           els.messages.scrollTop = els.messages.scrollHeight;
         }
       }
@@ -261,7 +255,7 @@ async function send(presetText) {
     if (!received) aiBubble.textContent = "(no reply — try again)";
     else finalizeAiBubble(aiBubble, received); // maybe turn options into buttons
   } catch (err) {
-    aiBubble.textContent = `⚠️ ${err.message}`;
+    aiBubble.textContent = "Something went wrong — please try again."
   } finally {
     setStreaming(false);
   }

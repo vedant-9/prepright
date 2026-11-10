@@ -1,0 +1,34 @@
+@startuml verification
+skinparam backgroundColor #0D1117
+skinparam defaultTextColor #E8EDF7
+skinparam defaultFontSize 13
+skinparam activity {
+  BackgroundColor #161B22
+  BorderColor #30363D
+  DiamondBackgroundColor #2D1B3D
+  DiamondBorderColor #C084FC
+}
+skinparam arrow {
+  Color #58A6FF
+  FontSize 12
+}
+
+title **Compute-Don't-Trust Verification Pipeline**\n<size:11>The LLM never supplies answers — sympy computes them</size>
+
+start
+:LLM drafts question + machine-readable spec\n<color:#9AA7C4>example: {"type": "quadratic_roots", "a": 1, "b": -5, "c": 6}</color>;
+:Sympy solves the spec\n<color:#3FCF8E>deterministic ground truth</color>;
+if (Coherence check:\nspec numbers appear\nin question text?) then (yes)
+  if (Sympy solution\nvalid?) then (yes)
+    :Code generates distractors\n<color:#FFB84D>sign flips, sum/product confusion,\noff-by-one, GCD/LCM swap</color>;
+    :Verified question served\n<color:#3FCF8E>as structured SSE event</color>;
+    stop
+  else (no)
+    :Drop question\n<color:#FF6B6B>never serve unverified math</color>;
+    stop
+  endif
+else (no)
+  :Drop question\n<color:#FF6B6B>spec/text mismatch</color>;
+  stop
+endif
+@enduml
