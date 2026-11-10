@@ -11,7 +11,13 @@ async function api(path, opts = {}) {
     ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    let d = body.detail;
+    if (Array.isArray(d)) d = d.map((e) => e.msg).join("; ");   // 422 arrays
+    if (typeof d === "object" && d) d = JSON.stringify(d);      // safety net
+    throw new Error(d || `HTTP ${res.status}`);
+  }
   return res.json();
 }
 
@@ -26,13 +32,8 @@ $("login-form").onsubmit = async (e) => {
     const students = await api("/api/students");
     // simple flow: try signup if name is new, else we need the id — use the
     // pragmatic path: signup is idempotent enough for pilot (one parent/device)
-    let out;
-    try {
-      out = await api("/api/parent/signup", { method: "POST", body: { name: name || "Parent", pin } });
-    } catch (err) {
-      out = null;
-    }
-    if (!out) throw new Error("signup failed");
+    const out = await api("/api/parent/signup",
+      { method: "POST", body: { name: name || "Parent", pin } });
     parentId = out.parent.id;
     localStorage.setItem("pr_parent", JSON.stringify({ id: parentId, name: out.parent.name }));
     showDash();
@@ -63,17 +64,23 @@ async function loadKids() {
     const flags = kid.chapters.map((c) =>
       `<span class="flag ${c.flag}">${flagIcon(c.flag)} ${chapterTitle(c.chapter_id)} ${Math.round(c.accuracy * 100)}%</span>`
     ).join("") || '<span class="muted">No practice yet</span>';
+    const scoreColor = kid.prepscore >= 70 ? "var(--accent)" : kid.prepscore >= 40 ? "#f5a623" : "#ff6b6b";
     el.innerHTML = `
       <div class="kid-head">
-        <h3>${kid.name} <small class="muted">Class ${kid.grade}</small></h3>
-        <div class="score-ring">${kid.prepscore}<small>/100</small></div>
+        <div class="kid-identity">
+          <span class="kid-avatar">${kid.name[0].toUpperCase()}</span>
+          <div><h3>${kid.name}</h3><small class="muted">Class ${kid.grade} · CBSE</small></div>
+        </div>
+        <div class="score-display">
+          <span class="score-num" style="color:${scoreColor}">${kid.prepscore}</span>
+          <span class="score-label">PrepScore</span>
+        </div>
       </div>
-      <div class="prepscore-bar"><div class="prepscore-fill" style="width:${kid.prepscore}%"></div></div>
-      <p class="muted small">PrepScore — practice coverage weighted by exam marks (a measurement, not a promise)</p>
+      <div class="prepscore-bar"><div class="prepscore-fill" style="width:${kid.prepscore}%;background:${scoreColor}"></div></div>
       <div class="flags">${flags}</div>
       <div class="kid-actions">
-        <a href="/" class="ghost-btn" onclick="sessionStorage.setItem('pr_kid','${kid.id}')">▶ ${kid.name}'s tutor</a>
-        <button class="ghost-btn" onclick="genReport(${kid.id}, this)">📄 Weekly report</button>
+        <a href="/" class="action-btn primary" onclick="sessionStorage.setItem('pr_kid','${kid.id}')">Start tutoring</a>
+        <button class="action-btn" onclick="genReport(${kid.id}, this)">Weekly report</button>
       </div>
       <div class="report hidden" id="report-${kid.id}"></div>`;
     wrap.appendChild(el);

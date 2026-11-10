@@ -7,18 +7,23 @@
   <!-- ?v= is cache busting: StaticFiles sends no cache headers, so the
        browser would otherwise heuristically serve stale JS after edits.
        Bump the version on every change to web/ assets. -->
-  <link rel="stylesheet" href="style.css?v=12" />
+  <link rel="stylesheet" href="style.css?v=36" />
 </head>
 <body>
   <header>
     <div class="brand">Prep<span>Right</span></div>
-    <div class="student-bar">
-      <select id="student-select" aria-label="Who is learning?"></select>
-      <button id="new-student-btn" class="ghost">+ New</button>
-    </div>
+    <span id="current-kid" class="current-kid"></span>
+    <button id="parent-btn" class="nav-btn">For Parents →</button>
   </header>
 
   <!-- hidden until a student is picked/created -->
+  <!-- profile picker: cards, not dropdowns - kids tap faces, not menus -->
+  <div id="picker" class="picker hidden">
+    <h2>Who's learning?</h2>
+    <div id="kid-cards" class="kid-cards"></div>
+    <button id="manage-kids-btn" class="ghost">+ Add / manage (parent)</button>
+  </div>
+
   <div id="onboarding" class="onboarding hidden">
     <h2>Welcome! 👋</h2>
     <p>Tell us who's learning maths today.</p>
@@ -42,6 +47,14 @@
     </form>
   </main>
 
-  <script src="app.js?v=12"></script>
+  <div id="pin-modal" class="modal hidden">
+    <div class="card">
+      <h3 id="pin-title">Parent PIN</h3>
+      <input id="pin-input" inputmode="numeric" maxlength="4" placeholder="4 digits" />
+      <button id="pin-submit" class="primary" type="button">OK</button>
+      <p id="pin-error" class="error hidden"></p>
+    </div>
+  </div>
+  <script src="app.js?v=36"></script>
 </body>
 </html>

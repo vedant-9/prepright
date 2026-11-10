@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PrepRight — Parent Dashboard</title>
-  <link rel="stylesheet" href="style.css?v=13" />
+  <link rel="stylesheet" href="style.css?v=21" />
 </head>
 <body>
   <header>
     <div class="brand">Prep<span>Right</span> <small class="muted">Parent</small></div>
-    <a href="/" class="ghost-btn">← Kid mode</a>
+    <a href="/" class="ghost-btn">← Study Mode</a>
   </header>
 
   <!-- STEP 1: parent login -->
@@ -18,7 +18,7 @@
     <p class="muted">Kids study freely; this area is PIN-protected.</p>
     <form id="login-form">
       <input id="parent-name" placeholder="Your name (first time? just type it)" maxlength="60" />
-      <input id="parent-pin" placeholder="4-digit PIN" inputmode="numeric" maxlength="4" required />
+      <input id="parent-pin" placeholder="4-digit PIN (e.g. 2468)" inputmode="numeric" maxlength="4" pattern="\d{4}" title="Exactly 4 digits" required />
       <button type="submit" class="primary">Enter</button>
     </form>
     <p id="gate-error" class="error hidden"></p>
@@ -45,6 +45,6 @@
     </div>
   </div>
 
-  <script src="parent.js?v=13"></script>
+  <script src="parent.js?v=21"></script>
 </body>
 </html>
