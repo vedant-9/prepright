@@ -474,6 +474,11 @@ function pinError() {
 
 // gear: PIN-gated jump to the parent dashboard (same device, kid-safe exit)
 document.getElementById("parent-btn").onclick = async () => {
+  // no parent ever signed in on this device: there is no PIN to ask for
+  if (!JSON.parse(localStorage.getItem("pr_parent") || "{}").id) {
+    location.href = "/parent.html";
+    return;
+  }
   const pin = await askPin("Parent PIN");
   if (!pin) return;
   const parent = JSON.parse(localStorage.getItem("pr_parent") || "{}");
@@ -482,6 +487,15 @@ document.getElementById("parent-btn").onclick = async () => {
     body: JSON.stringify({ parent_id: parent.id, pin }),
   });
   if (res.ok) location.href = "/parent.html";
+  else if (res.status === 404) {
+    // server reset wiped this parent (ephemeral demo storage): clear the
+    // ghost session and send them to sign-in, which recreates the profile
+    localStorage.removeItem("pr_parent");
+    const err = document.getElementById("pin-error");
+    err.classList.remove("hidden");
+    err.textContent = "Profile was reset — reopening parent sign-in…";
+    setTimeout(() => location.href = "/parent.html", 1400);
+  }
   else pinError();
 };
 

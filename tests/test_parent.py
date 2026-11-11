@@ -62,3 +62,12 @@ def test_token_scoped_to_own_parent(client):
     # but A sees their own (empty) kids, not B's
     d = client.get(f"/api/parent/{pid_a}/dashboard", headers=headers_a).json()
     assert d["kids"] == []
+
+
+def test_login_unknown_parent_is_404_not_wrong_pin(client):
+    """A server reset (ephemeral demo storage) wipes the parents table while
+    the browser still holds the old parent id. That must be a 404 ('sign in
+    again') so the client can self-heal - NOT 'wrong PIN', which tells a
+    parent who typed their PIN correctly that they typed it wrong."""
+    assert client.post("/api/parent/login",
+                       json={"parent_id": 99999, "pin": "1234"}).status_code == 404

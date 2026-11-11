@@ -116,7 +116,12 @@ def parent_login(body: ParentLogin) -> dict:
         row = conn.execute(
             "SELECT id, name, pin_hash FROM parents WHERE id = ?",
             (body.parent_id,)).fetchone()
-    if row is None or row["pin_hash"] != _hash_pin(body.pin):
+    if row is None:
+        # ephemeral demo storage: a deploy can wipe the DB while the
+        # browser still holds the old parent id - not the kid's fault
+        raise HTTPException(status_code=404,
+                            detail="parent profile not found - the server may have reset, sign in again")
+    if row["pin_hash"] != _hash_pin(body.pin):
         raise HTTPException(status_code=401, detail="wrong PIN")
     kids = _kids_of(body.parent_id)
     return {"parent": {"id": row["id"], "name": row["name"]}, "kids": kids}

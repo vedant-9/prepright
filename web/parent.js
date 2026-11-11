@@ -15,6 +15,14 @@ async function api(path, opts = {}) {
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   if (!res.ok) {
+    // a dead session token (server reset wiped auth_sessions) must fall
+    // back to the sign-in gate, not strand a half-loaded dashboard
+    if (res.status === 401 && authToken) {
+      localStorage.removeItem("pr_parent");
+      localStorage.removeItem("pr_last_kid");
+      location.reload();
+      return new Promise(() => {});   // page is navigating away
+    }
     const body = await res.json().catch(() => ({}));
     let d = body.detail;
     if (Array.isArray(d)) d = d.map((e) => e.msg).join("; ");   // 422 arrays
