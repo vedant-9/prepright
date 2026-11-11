@@ -1,5 +1,7 @@
 # PrepRight
 
+[![tests](https://github.com/vedant-9/prepright/actions/workflows/ci.yml/badge.svg)](https://github.com/vedant-9/prepright/actions/workflows/ci.yml)
+
 **An AI math tutor for school kids (CBSE Class 8–10) that can't teach them wrong math.**
 
 Kids chat, learn, and practice. Parents see exactly where their child is strong or struggling.
@@ -37,10 +39,6 @@ Quizzes cover what has a computable answer — algebra, equations, number system
 ![Architecture](diagrams/architecture.png)
 
 A LangGraph agent (guardrail → model → 8 tools) with a 3-model fallback chain, RAG concept lookup, and per-student conversation memory. Provider SDKs are imported by exactly one file, so swapping models touches nothing else.
-
-<!-- After pushing: uncomment and fix the username
-[![tests](https://github.com/<username>/prepright/actions/workflows/ci.yml/badge.svg)](https://github.com/<username>/prepright/actions/actions/workflows/ci.yml)
--->
 
 ## Quick start
 
