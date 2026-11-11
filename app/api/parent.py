@@ -143,7 +143,8 @@ def add_kid(parent_id: int, body: KidIn, _auth: int = Depends(require_parent)) -
 def delete_kid(parent_id: int, student_id: int,
                _auth: int = Depends(require_parent)) -> dict:
     """Remove a kid profile and all associated data (progress, sessions).
-    Parent PIN re-authentication recommended for production; pilot = token auth."""
+    Auth is the session token; re-authenticating the parent PIN before
+    deletion is the hardening step when this endpoint faces the internet."""
     with get_conn() as conn:
         # verify kid belongs to this parent
         row = conn.execute(

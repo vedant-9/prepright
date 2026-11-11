@@ -75,8 +75,8 @@ async def init_graph() -> None:
     _saver_cm = AsyncSqliteSaver.from_conn_string(str(CHECKPOINTS_PATH))
     saver = await _saver_cm.__aenter__()
     graph = _build_graph(checkpointer=saver)
-    # NOTE: no explicit __aexit__ - the saver lives for the process lifetime
-    # (uvicorn shutdown closes everything). Acceptable at POC scale.
+    # NOTE: no explicit __aexit__ - the saver intentionally lives for the
+    # process lifetime (process exit closes the SQLite file).
 
 
 # ---------------------------------------------------------------- nodes
@@ -252,9 +252,8 @@ async def stream_tutor_turn(student: dict, message: str,
     # output classifier on free text is a documented future piece (needs
     # buffered streaming). What we CAN do cheaply: audit the assembled
     # reply against the same blocklist as the input screen. A hit cannot
-    # retract the text, but it is logged loudly - for a pilot, silent
-    # failures are the real enemy; every hit becomes a data point to
-    # tighten prompts/screens.
+    # retract the text, but it is logged loudly - silent failures are the
+    # real enemy; every hit becomes a data point to tighten prompts/screens.
     final_text: list[str] = []
     audit_hit = False
 

@@ -5,6 +5,8 @@ parts (drafting) get fake-model tests in .
 """
 
 import sys
+
+import pytest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -101,3 +103,14 @@ def test_verify_question_happy_path():
     assert v.ok and v.answer == "x = 2 or x = 3"
     assert v.options[0] == "x = 2 or x = 3" and len(v.options) == 4
     assert v.skill == "factorisation"
+
+
+def test_division_by_zero_fails_closed():
+    # a drafted spec like 1/0 must never become a quiz question whose
+    # answer is "zoo" - non-finite values raise -> question dropped
+    with pytest.raises(ValueError):
+        solve_spec({"type": "arithmetic", "expr": "1/0"})
+    with pytest.raises(ValueError):
+        solve_spec({"type": "linear_eq", "a": 0, "b": 2, "c": 6})
+    v = verify_question("What is 1/0?", {"type": "arithmetic", "expr": "1/0"})
+    assert v.ok is False

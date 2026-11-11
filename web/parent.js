@@ -31,10 +31,8 @@ $("login-form").onsubmit = async (e) => {
   const name = $("parent-name").value.trim();
   const pin = $("parent-pin").value.trim();
   try {
-    // find existing parent by name (POC; deploy = email OTP)
-    const students = await api("/api/students");
-    // simple flow: try signup if name is new, else we need the id — use the
-    // pragmatic path: signup is idempotent enough for pilot (one parent/device)
+    // signup is find-or-create (idempotent): existing name + matching PIN
+    // logs in, a new name registers. One parent per device is the norm.
     const out = await api("/api/parent/signup",
       { method: "POST", body: { name: name || "Parent", pin } });
     parentId = out.parent.id;

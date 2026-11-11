@@ -31,8 +31,8 @@ from functools import lru_cache
 PHONE_RE = re.compile(r"(?<!\d)(?:\+91[\s-]?)?(?:[6-9]\d{9}|[6-9]\d{4}[\s-]\d{5})(?!\d)")
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
 
-# Word-boundary matched, case-insensitive. Floor-level list; extend via
-# pilot feedback - do not pretend this is comprehensive.
+# Word-boundary matched, case-insensitive. Floor-level list; extend from
+# real usage reports - do not pretend this is comprehensive.
 BLOCKED_WORDS = [
     "suicide", "kill myself", "self-harm", "self harm",
     "porn", "nude", "nudes", "gambling", "casino",

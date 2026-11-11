@@ -72,7 +72,12 @@ main {
   gap: 10px;
 }
 
-#messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; }
+/* The chat must scroll INSIDE the page, never the page itself - otherwise
+   the header scrolls away. Flex children default to min-height:auto, which
+   grows main past body's 100dvh; min-height:0 lets #messages be the scroller. */
+main#chat { min-height: 0; }
+
+#messages { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; }
 
 .msg {
   max-width: 82%;

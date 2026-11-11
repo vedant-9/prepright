@@ -22,3 +22,12 @@ def test_rejects_non_arithmetic():
     assert "error" in out
     out2 = calculate.invoke({"expression": "sqrt(16)"})
     assert "error" in out2  # names are not arithmetic - maths beyond + - * / ^ is taught, not calculated
+
+
+def test_division_by_zero_teaches_undefined():
+    # zoo must never reach a kid's bubble; the model narrates this result
+    # as a teaching moment (division by zero IS Class-10 syllabus)
+    out = calculate.invoke({"expression": "1/0"})
+    assert "undefined" in out["result"] and "zoo" not in out["result"]
+    out2 = calculate.invoke({"expression": "5 / (3 - 3)"})
+    assert "undefined" in out2["result"]

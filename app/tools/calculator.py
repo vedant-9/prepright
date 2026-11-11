@@ -8,7 +8,7 @@ numeric answer it gives originates from this tool (or verified quiz keys).
 import re
 
 from langchain_core.tools import tool
-from sympy import Rational, sympify
+from sympy import Rational, sympify, zoo, oo, nan
 
 # digits, + - * / ( ) . ^ and spaces only - no names, no imports possible
 _SAFE_EXPR = re.compile(r"^[\d+\-*/().^ ]+$")
@@ -26,6 +26,12 @@ def calculate(expression: str) -> dict:
         value = sympify(expression)
     except Exception as exc:
         return {"error": f"could not parse: {exc}"}
+    # 1/0 -> zoo, (-4)^0.5 -> complex: not Class-10 answers. Returning
+    # "undefined" (not an error) lets the model TEACH why - division by
+    # zero being undefined is Class-10 syllabus itself.
+    if value.has(zoo, oo, nan) or value.is_real is False:
+        return {"result": "undefined (division by zero is not defined)",
+                "expression": expression}
     if isinstance(value, Rational) and value.q == 1:
         value = value.p
     return {"result": str(value), "expression": expression}

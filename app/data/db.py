@@ -28,7 +28,8 @@ SCHEMA = """
 -- v1 is single-board (CBSE) but the column exists from day one so
 -- ICSE support later is data + content, not a migration.
 -- Parents own the account (DPDP-safe: kids never have credentials).
--- pin_hash = SHA-256 of a 4-digit PIN (POC hashing; bcrypt at deploy).
+-- pin_hash = SHA-256 of a 4-digit PIN; switch to bcrypt before this
+-- endpoint faces the internet.
 CREATE TABLE IF NOT EXISTS parents (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL,
