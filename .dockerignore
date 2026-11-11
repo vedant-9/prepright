@@ -1,0 +1,25 @@
+# Build context hygiene: the image needs app/, content/, web/ only.
+# Everything else must never reach a builder.
+.git
+.venv
+.env
+.env.example
+.commit-guard
+docs
+data
+tests
+evals
+scripts
+.github
+assets
+.zcode
+__pycache__
+*.pyc
+*.db
+*.db-wal
+*.db-shm
+render.yaml
+Dockerfile
+.dockerignore
+*.md
+githooks
