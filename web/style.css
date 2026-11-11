@@ -77,7 +77,11 @@ main {
    grows main past body's 100dvh; min-height:0 lets #messages be the scroller. */
 main#chat { min-height: 0; }
 
-#messages { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; }
+#messages { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; scrollbar-width: thin; scrollbar-color: #2a3650 transparent; }
+#messages::-webkit-scrollbar { width: 8px; }
+#messages::-webkit-scrollbar-track { background: transparent; }
+#messages::-webkit-scrollbar-thumb { background: #2a3650; border-radius: 4px; }
+#messages::-webkit-scrollbar-thumb:hover { background: #4a6fa5; }
 
 .msg {
   max-width: 82%;
