@@ -1,0 +1,36 @@
+#!/bin/sh
+# commit guard - blocks process-level details and secrets from landing.
+# Public patterns live here; private ones (never committed) live in
+# .commit-guard at the repo root, one regex per line, # for comments.
+set -e
+
+staged=$(git diff --cached --name-only)
+
+# 1) private paths must never be staged (even with -f)
+echo "$staged" | grep -E '(^|/)(docs/|\.env$)|\.db(-wal|-shm)?$' && {
+  echo "BLOCKED: private path staged (docs/, .env, or database file)"
+  exit 1
+}
+
+# 2) added lines must not contain stage labels / markers / secrets
+#    (githooks/ itself is exempt - the pattern lists live here)
+diff=$(git diff --cached -U0 -- . ':(exclude)githooks' | grep '^+' | grep -v '^+++')
+[ -z "$diff" ] && exit 0
+
+patterns='sk-[A-Za-z0-9]{20}|gsk_[A-Za-z0-9]{20}|AIza[A-Za-z0-9_-]{25}'
+patterns="$patterns|\bPOC\b|\bpilot\b|P[0-9]+(\.[0-9]+)?:"
+
+if [ -f .commit-guard ]; then
+  extra=$(grep -v '^#' .commit-guard | grep -v '^$' | paste -sd'|' - || true)
+  [ -n "$extra" ] && patterns="$patterns|$extra"
+fi
+
+# || true: grep exits 1 on NO match, which set -e would treat as fatal -
+# a clean diff must pass, not kill the hook
+hits=$(echo "$diff" | grep -inE "$patterns" || true)
+if [ -n "$hits" ]; then
+  echo "BLOCKED: process-level detail or secret in staged changes:"
+  echo "$hits" | head -5
+  exit 1
+fi
+exit 0
