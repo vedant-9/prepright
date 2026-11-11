@@ -1,0 +1,22 @@
+# Render blueprint - free web service from the GitHub repo.
+# Secret values are NOT stored here: after the first deploy, set
+# GROQ_API_KEY and GEMINI_API_KEY in the Render dashboard (Environment).
+services:
+  - type: web
+    name: prepright
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: LLM_PROVIDER
+        value: groq
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: GROQ_FALLBACK_MODEL
+        value: openai/gpt-oss-20b
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
