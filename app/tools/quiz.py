@@ -121,6 +121,11 @@ def generate_quiz_core(chapter_id: str, difficulty: int = 2, n: int = 5) -> dict
         return hit
 
     questions = _verified_quiz(chapter, difficulty, n)
+    if not questions:
+        # ALL failed verification - better to fail loudly than serve nothing
+        return {"error": "quiz generation failed - all questions failed verification. "
+                "Apologize and suggest the student try again, or ask a question yourself."}
+
     result = {
         "chapter": chapter["title"],
         "chapter_id": chapter_id,
@@ -174,6 +179,8 @@ def grade_quiz(chapter_id: str, difficulty: float, answers: str,
     picked = {}
     for num, letter in re.findall(r"(\d+)\s*[:\-.]?\s*([A-Da-d])", answers):
         picked[int(num)] = letter.upper()
+    if len(picked) < 2:
+        return {"error": "no student answers yet - wait for their reply with answers like '1:A 2:C 3:B 4:A 5:D'"}
 
     verdicts, correct_count = [], 0
     for i, q in enumerate(quiz["questions"], start=1):

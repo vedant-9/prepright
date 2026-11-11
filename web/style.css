@@ -188,3 +188,7 @@ main {
 .quiz-chip { background: rgba(255,184,77,0.12); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 12px; color: var(--accent); font: inherit; font-size: 0.9rem; font-weight: 500; cursor: pointer; flex-shrink: 0; white-space: nowrap; }
 .quiz-chip:hover { background: rgba(255,184,77,0.2); }
 .quiz-chip:disabled { opacity: 0.4; cursor: default; }
+
+/* graded quiz options: visual feedback */
+.opt-btn.correct { border-color: #3fcf8e !important; background: rgba(63,207,142,0.15) !important; color: #3fcf8e; }
+.opt-btn.wrong { border-color: #ff6b6b !important; background: rgba(255,107,107,0.15) !important; color: #ff6b6b; }

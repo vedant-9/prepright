@@ -30,7 +30,8 @@ const els = {
 let studentId = null;
 let allKids = [];
 let studentName = "";
-let streaming = false;
+  let streaming = false;
+  let pendingQuiz = null;   // buffered until intro text streams
 
 // ---------- onboarding ----------
 
@@ -128,6 +129,11 @@ function renderRich(text) {
     .replace(/\\pi/g, "π").replace(/\\leq/g, "≤").replace(/\\geq/g, "≥")
     .replace(/\^\{([^{}]+)\}/g, "^$1")             // x^{2} -> x^2
     .replace(/x\^2\b/g, "x²").replace(/\^2\b/g, "²");
+  // strip markdown tables (model sometimes uses them despite the prompt)
+  t = t.replace(/^\|.*\|$/gm, function(row) {
+    var cells = row.split("|").filter(function(c) { return c.trim(); });
+    return cells.join(" · ");
+  });
   t = t
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
@@ -209,22 +215,24 @@ async function send(presetText) {
           throw new Error(payload.error);
         }
         if (payload.done) {
+          pendingQuiz = null;
+          pendingQuiz = null;
           var chip = document.getElementById("quiz-chip");
           if (chip) chip.disabled = false;
           continue;
         }
         if (payload.quiz) {
-          // STRUCTURED quiz delivery: cards rendered from data, not prose.
-          // Kill the model's duplicate text quiz: keep only the intro text
-          // (everything before the first numbered question line)
-          var intro = received.split("\n").filter(function(line) {
-            var t = line.trim();
-            return t && !/^\d+[.)]/.test(t) && !/^[A-D]\)/.test(t);
-          }).join("\n").trim();
-          aiBubble.innerHTML = renderRich(intro || "Here is your quiz:");
+          // RENDER IMMEDIATELY: cards show as soon as generated.
+          // Text filter (in delta handler) removes the model's duplicate.
+          pendingQuiz = true;  // flag only, for the text filter
           renderStructuredQuiz(payload.quiz);
           var chip = document.getElementById("quiz-chip");
           if (chip) chip.disabled = true;
+          continue;
+        }
+        if (payload.grade) {
+          // Color the original quiz cards: green = correct, red = wrong pick
+          applyGradeToCards(payload.grade.verdicts);
           continue;
         }
         if (payload.tool) {
@@ -235,7 +243,15 @@ async function send(presetText) {
         if (payload.delta) {
           if (toolChip) { toolChip.remove(); toolChip = null; }
           received += payload.delta;
-          aiBubble.innerHTML = renderRich(received);
+          var display = received;
+          if (pendingQuiz) {
+            var lines = received.split("\n");
+            display = lines.filter(function(line) {
+              var t = line.trim();
+              return t && !/^\d+[.)]/.test(t) && !/^[A-D]\)/.test(t) && !/^Question \d/.test(t);
+            }).join("\n");
+          }
+          aiBubble.innerHTML = renderRich(display || "...");
           els.messages.scrollTop = els.messages.scrollHeight;
         }
       }
@@ -249,6 +265,27 @@ async function send(presetText) {
   } finally {
     setStreaming(false);
   }
+}
+
+function applyGradeToCards(verdicts) {
+  // Color the quiz cards: green = correct pick, green = right answer (shown),
+  // red = wrong pick. Uses the last set of .q-block elements in the chat.
+  var blocks = document.querySelectorAll(".q-block");
+  verdicts.forEach(function(v) {
+    var block = blocks[v.question - 1];
+    if (!block) return;
+    var buttons = block.querySelectorAll(".opt-btn");
+    buttons.forEach(function(btn) {
+      btn.disabled = true;
+      var letter = btn.textContent.trim().charAt(0);
+      var optionText = btn.textContent.trim().substring(3).trim();
+      if (letter === v.chosen) {
+        btn.classList.add(v.correct ? "correct" : "wrong");
+      } else if (optionText === v.right_option) {
+        btn.classList.add("correct");  // always show the right answer
+      }
+    });
+  });
 }
 
 function setStreaming(on) {
@@ -398,6 +435,7 @@ function parseOptions(text) {
 // model never retypes them, so hallucinated/reformatted quizzes are
 // structurally impossible.
 function renderStructuredQuiz(quiz) {
+  if (!quiz.questions || quiz.questions.length === 0) return;  // safety: no empty cards
   const holder = document.createElement("div");
   holder.className = "msg ai";
   const title = quiz.chapter ? `**Quiz - ${quiz.chapter}** (difficulty ${quiz.difficulty}/5)` : "**Quiz**";

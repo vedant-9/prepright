@@ -89,7 +89,7 @@ def test_classifier_passes_ambiguous_study_intent(monkeypatch):
 def test_classifier_fails_open_on_error(monkeypatch):
     monkeypatch.setattr(gd, "_classify_with_llm",
                         lambda t: (_ for _ in ()).throw(RuntimeError("provider down")))
-    assert is_off_topic("who is modi") is False  # fail open, never block
+    assert is_off_topic("what is the weather like today") is False  # fail open, never block
 
 
 def test_offtopic_reply_redirects_to_maths():
