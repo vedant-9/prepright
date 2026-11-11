@@ -302,7 +302,11 @@ async def stream_tutor_turn(student: dict, message: str,
                             blob = json.loads(m.content)
                         except (TypeError, json.JSONDecodeError):
                             continue
-                        if isinstance(blob, dict) and blob.get("questions"):
+                        if isinstance(blob, dict) and blob.get("verdicts"):
+                            # GRADE EVENT: per-question verdicts for the
+                            # frontend to color the original quiz cards
+                            yield {"grade": blob}
+                        if isinstance(blob, dict) and blob.get("questions") and len(blob["questions"]) > 0:
                             yield {"quiz": {
                                 "chapter": blob.get("chapter"),
                                 "difficulty": blob.get("difficulty"),

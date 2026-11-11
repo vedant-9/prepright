@@ -66,13 +66,14 @@ MATH_EVIDENCE_RE = re.compile(
     r"(\d\s*[+\-x×*/÷^]\s*\d)"          # arithmetic: 5 * 3, 12+7, x^2
     r"|(\d+\s*%)"                        # percentages
     r"|(=\s*\d|\d\s*=)"                  # equations: = 5
+    r"|(\d+\s*:?\s*[A-D](\s+\d+\s*:?\s*[A-D])+)"  # quiz answers: 1:B 2:C 3:A
     r"|\b(solv|equat|quadrat|factori|factoriz|fract|decimal|"
     r"hcf|lcm|gcd|percent|probab|trig|sin\b|cos\b|tan\b|"
     r"polynom|algebr|geometr|triangl|circl|angl|area|volume|"
     r"perimeter|mean\b|median|mode\b|statist|graph|theorem|root\b|"
     r"arithmetic|progress|square root|cube\b|prime\b|ratio|proportion|"
     r"integer|rational|chapter|quiz|practic|practis|revis|worksheet|"
-    r"learn|teach|concept|test\b|exam\b)",
+    r"learn|teach|concept|test\b|exam\b|answer)",
     re.IGNORECASE)
 
 
@@ -95,6 +96,16 @@ def has_math_evidence(text: str) -> bool:
     return bool(MATH_EVIDENCE_RE.search(text))
 
 
+# OBVIOUS NON-MATH (fast-reject): when the LLM classifier can't run
+# (rate limits), these common chit-chat patterns are caught deterministically
+# instead of burning tokens on the model politely declining.
+_OBVIOUS_NON_MATH_RE = re.compile(
+    r"\b(who is|who was|capital of|president of|prime minister of|"
+    r"cricket match|movie|song|joke|"
+    r"girlfriend|boyfriend|dating|football match)\b",
+    re.IGNORECASE)
+
+
 def is_off_topic(text: str, *, classify=None) -> bool:
     """True if unrelated to maths/study -> canned redirect, zero chat tokens.
 
@@ -111,6 +122,8 @@ def is_off_topic(text: str, *, classify=None) -> bool:
     """
     if has_math_evidence(text):
         return False
+    if _OBVIOUS_NON_MATH_RE.search(text) and not has_math_evidence(text):
+        return True  # deterministic fast-reject, zero LLM cost
     if classify is not None:
         return classify
     try:
