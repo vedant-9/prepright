@@ -23,7 +23,7 @@ solver here; the model learns new types via the tool prompt (tools.py).
 
 from dataclasses import dataclass
 
-from sympy import Rational, Symbol, gcd, lcm, solve, sympify
+from sympy import Rational, Symbol, gcd, lcm, solve, sympify, zoo, oo, nan
 
 # ---------------------------------------------------------------- result type
 
@@ -62,6 +62,14 @@ def _roots_pair(coeffs: dict) -> tuple:
     return tuple(sorted(nums))
 
 
+def _reject_non_finite(v) -> None:
+    """1/0 -> zoo, a=0 linear -> zoo: a non-finite or non-real value is not
+    a Class-10 answer. Raise so the question is dropped - same fail-closed
+    rule as imaginary quadratic roots."""
+    if v.has(zoo, oo, nan) or v.is_real is False:
+        raise ValueError(f"non-finite/non-real value: {v}")
+
+
 # ---------------------------------------------------------------- layer 1: solve
 
 def solve_spec(spec: dict) -> tuple[str, object]:
@@ -75,11 +83,13 @@ def solve_spec(spec: dict) -> tuple[str, object]:
     if t == "arithmetic":
         # e.g. {"expr": "12 + 7 * 3"} - integers only in v1 specs
         v = sympify(spec["expr"])
+        _reject_non_finite(v)
         return _fmt(v), v
 
     if t == "linear_eq":
         # a*x + b = c  ->  x = (c - b) / a
         v = Rational(spec["c"] - spec["b"], spec["a"])
+        _reject_non_finite(v)
         return _fmt(v), v
 
     if t == "quadratic_roots":

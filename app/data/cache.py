@@ -2,8 +2,8 @@
 
 WHY DISK, NOT MEMORY: the dev server restarts on every file save (--reload);
 an in-memory cache would die with each reload. Disk survives.
-WHY NOT REDIS: a POC on a laptop gains nothing from another moving part.
-This module is the swap-in point if/when we outgrow it.
+WHY NOT REDIS: a single-node deployment gains nothing from another moving
+part. This module is the swap-in point if/when we outgrow it.
 
 Used first by quiz generation: a (chapter, difficulty, style) quiz
 request is deterministic-ish, so caching kills repeat API calls —

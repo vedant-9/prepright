@@ -43,8 +43,8 @@ class Settings:
     gemini_embedding_model: str = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
 
     # --- Runtime flags ----------------------------------------------------
-    # DEMO_MODE=true serves cached/replayed responses so live demos and
-    # the pilot never die on an API quota error.
+    # DEMO_MODE=true serves cached/replayed responses so a live demo never
+    # dies on an API quota error.
     demo_mode: bool = os.getenv("DEMO_MODE", "false").lower() == "true"
 
 

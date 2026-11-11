@@ -142,14 +142,26 @@ def generate_quiz_core(chapter_id: str, difficulty: int = 2, n: int = 5) -> dict
 # Docstrings are the model's instructions in  - write them for the LLM
 # to act on, not for human developers only.
 
+# Which quiz THIS student was actually served: (chapter_id, difficulty, n).
+# grade_quiz must grade the exact quiz the student saw. Looking it up by the
+# model's (chapter_id, difficulty) alone cannot identify it - 1-question
+# warm-ups and n=5 batches share a chapter - and a miss would silently grade
+# a freshly generated DIFFERENT quiz, marking right answers wrong.
+_served = {}
+
+
 @tool
-def generate_quiz(chapter_id: str, difficulty: float = 2, n: float = 5) -> dict:
+def generate_quiz(chapter_id: str, difficulty: float = 2, n: float = 5,
+                  student_id: float = 0) -> dict:
     """Generate a practice quiz for a CBSE maths chapter. Every question is
     verified: answers are computed by sympy, never by the language model.
     Use when the student should practice a chapter (they ask for practice,
     a test, or have just finished learning a topic)."""
     # args arrive as JSON numbers: 2 or 2.0 - accept both, coerce to int
-    return generate_quiz_core(chapter_id, int(difficulty), int(n))
+    out = generate_quiz_core(chapter_id, int(difficulty), int(n))
+    if isinstance(out, dict) and out.get("questions"):
+        _served[int(student_id)] = (chapter_id, out["difficulty"], len(out["questions"]))
+    return out
 
 
 @tool
@@ -168,19 +180,29 @@ def grade_answer(answer_index: float, correct_index: float) -> dict:
 def grade_quiz(chapter_id: str, difficulty: float, answers: str,
                student_id: float = 0) -> dict:
     """Grade a completed BATCH quiz in ONE call and record progress.
-    answers = the student's line like "1:A 2:C 3:B 4:A 5:D". Pass the SAME
-    chapter_id and difficulty used for generate_quiz. Returns score and
-    per-question verdicts - narrate the review from this result. Never call
-    record_progress after grade_quiz (it already did)."""
-    quiz = generate_quiz_core(chapter_id, int(difficulty), 5)  # cache hit -> same quiz
-    if "questions" not in quiz:
+    answers = the student's line like "1:A" or "1:A 2:C 3:B". Pass the SAME
+    chapter_id used for generate_quiz - the exact quiz this student was
+    served is resolved server-side. Returns score and per-question verdicts
+    - narrate the review from this result. Never call record_progress after
+    grade_quiz (it already did)."""
+    quiz = None
+    served = _served.get(int(student_id))
+    if served and served[0] == chapter_id:
+        quiz = cache.get(cache.make_key("quiz", *served), ttl_seconds=24 * 3600)
+    if not quiz:
+        # no served-quiz record (server restart, different chapter): fall
+        # back to the historical n=5 cache entry
+        quiz = generate_quiz_core(chapter_id, int(difficulty), 5)
+    if not isinstance(quiz, dict) or "questions" not in quiz:
         return {"error": "quiz not found for that chapter/difficulty"}
 
     picked = {}
     for num, letter in re.findall(r"(\d+)\s*[:\-.]?\s*([A-Da-d])", answers):
         picked[int(num)] = letter.upper()
-    if len(picked) < 2:
-        return {"error": "no student answers yet - wait for their reply with answers like '1:A 2:C 3:B 4:A 5:D'"}
+    if not picked:
+        # premature call: the model graded before the student replied at all.
+        # One parsed answer IS gradable - single-question quizzes are legal.
+        return {"error": "no student answers yet - wait for their reply with answers like '1:A' or '1:A 2:C 3:B'"}
 
     verdicts, correct_count = [], 0
     for i, q in enumerate(quiz["questions"], start=1):
@@ -199,7 +221,7 @@ def grade_quiz(chapter_id: str, difficulty: float, answers: str,
         conn.execute(
             "INSERT INTO progress_events (student_id, chapter_id, difficulty, correct, total) "
             "VALUES (?, ?, ?, ?, ?)",
-            (int(student_id), chapter_id, int(difficulty),
+            (int(student_id), chapter_id, quiz.get("difficulty", int(difficulty)),
              correct_count, len(quiz["questions"])),
         )
     return {"score": f"{correct_count}/{len(quiz['questions'])}", "verdicts": verdicts}
