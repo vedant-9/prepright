@@ -1,0 +1,11 @@
+#!/bin/sh
+# push gate - pushes are deliberate, never casual.
+# The project rule: nothing reaches the remote without the owner's go.
+# Push with:  ALLOW_PUSH=1 git push
+set -e
+if [ "$ALLOW_PUSH" != "1" ]; then
+  echo "BLOCKED: push without explicit go."
+  echo "If the owner approved this push, run:  ALLOW_PUSH=1 git push"
+  exit 1
+fi
+exit 0

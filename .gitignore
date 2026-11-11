@@ -16,3 +16,6 @@ Thumbs.db
 
 # Private prep docs - not for public repo
 docs/
+
+# private commit-guard patterns (local only)
+.commit-guard
