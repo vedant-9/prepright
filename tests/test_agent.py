@@ -106,3 +106,98 @@ def test_loop_cap_stops_a_model_stuck_requesting_tools():
     with pytest.raises(GraphRecursionError):
         _run(_graph_with(model), "grade me forever")
     assert model.calls <= 5                       # capped well below the script
+
+
+# ------------------------------------------------------------ condense (memory compression)
+
+def _graph_with_summarizer(model, summarizer):
+    return g._build_graph(checkpointer=InMemorySaver(),
+                          model_with_tools=model, summarizer=summarizer)
+
+
+def _seeded_state(n_messages):
+    """Alternating human/ai turns like a real conversation."""
+    msgs = []
+    for i in range(n_messages // 2):
+        msgs.append(HumanMessage(content=f"question {i}"))
+        msgs.append(AIMessage(content=f"answer {i}"))
+    return msgs
+
+
+def test_condense_noop_under_threshold():
+    model = FakeModel([AIMessage(content="ok")])
+    seen = []
+    summarizer = lambda text: seen.append(text) or "SUMMARY"   # noqa: E731
+    graph = _graph_with_summarizer(model, summarizer)
+    # seed history via two turns (4 messages), then a third - all below 24
+    for text in ("q1", "q2", "q3"):
+        model.responses = [AIMessage(content="ok")]
+        graph.invoke({"messages": [HumanMessage(content=text)]}, config=_config())
+    assert seen == []                             # summarizer never called
+    assert model.calls == 3
+
+
+def test_condense_folds_old_turns_and_keeps_tail():
+    model = FakeModel([AIMessage(content="fresh reply")])
+    captured = {}
+    original_invoke = model.invoke
+    def capturing_invoke(messages):
+        captured["messages"] = messages
+        return original_invoke(messages)
+    model.invoke = capturing_invoke
+
+    def summarizer(text):
+        return "compressed memory"
+
+    graph = _graph_with_summarizer(model, summarizer)
+    seeded = _seeded_state(30)                     # 30 messages -> over CONDENSE_AFTER
+    out = graph.invoke({"messages": [*seeded, HumanMessage(content="new question")]},
+                       config=_config())
+
+    assert out["summary"] == "compressed memory"
+    assert len(out["messages"]) < 31               # old turns actually removed
+    assert out["messages"][-1].content == "fresh reply"
+    # the model SAW the summary, injected as a system message under the prompt
+    assert any(getattr(m, "content", "").startswith("Summary of earlier turns")
+               and "compressed memory" in m.content
+               for m in captured["messages"][:3])
+
+
+def test_condense_never_splits_tool_pairs():
+    """AI(tool_calls) + ToolMessage must survive together: seed a history
+    where the cut boundary would land between them if naive."""
+    from langchain_core.messages import ToolMessage
+    pair_mid = [
+        AIMessage(content="", tool_calls=[{"name": "calculate",
+                     "args": {"expression": "7*8"}, "id": "c1", "type": "tool_call"}]),
+        ToolMessage(content='{"result": 56}', tool_call_id="c1"),
+    ]
+    seeded = _seeded_state(20) + pair_mid + _seeded_state(6)
+    seeded.append(HumanMessage(content="next question"))
+
+    model = FakeModel([AIMessage(content="ok")])
+    removed_ids = []
+    def summarizer(text):
+        return "s"
+    graph = _graph_with_summarizer(model, summarizer)
+    out = graph.invoke({"messages": seeded}, config=_config())
+
+    kinds = [m.__class__.__name__ for m in out["messages"]]
+    # any ToolMessage present must still be preceded by its AI tool_call message
+    for i, k in enumerate(kinds):
+        if k == "ToolMessage":
+            assert kinds[i - 1] == "AIMessage"
+    assert out["summary"] == "s"
+
+
+def test_condense_fail_open_on_summarizer_death():
+    model = FakeModel([AIMessage(content="still teaching")])
+    def dead_summarizer(text):
+        raise RuntimeError("provider quota gone")
+    graph = _graph_with_summarizer(model, dead_summarizer)
+    seeded = _seeded_state(30)
+    out = graph.invoke({"messages": [*seeded, HumanMessage(content="q")]}, config=_config())
+    # full history proceeded, tutor answered, nothing crashed
+    assert out["messages"][-1].content == "still teaching"
+    assert len(out["messages"]) == 31 + 1          # 30 seeded + new human + ai reply
+    assert not out.get("summary")

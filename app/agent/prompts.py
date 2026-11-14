@@ -50,3 +50,19 @@ Formatting rules (STRICT - the chat renders plain text, and raw LaTeX looks like
 - Use **bold** only for key terms. Put each solution step on its own line.
 - Quiz options: one per line as "A) ...", "B) ...", "C) ...", "D) ...".
 """
+
+
+# Memory compression: folds older turns into a compact running summary.
+# What must survive: identity, topics covered, quiz results (the tutor's
+# adaptive-difficulty inputs), and the fact that profiling already happened
+# (the system prompt tells the model to profile once per conversation).
+SUMMARIZE_TEMPLATE = """You compress an older part of a math tutoring conversation so the tutor can keep helping a CBSE student without rereading it.
+
+Write a compact summary (under 200 words) preserving:
+- the student's name and class if mentioned
+- maths topics covered and where each discussion landed
+- quiz results: chapters, scores, and what the student got wrong
+- the student's confidence/struggle signals and any commitments ("I'll practice trigonometry tomorrow")
+- that profile lookup has already happened - do not suggest re-profiling
+
+Drop: greetings, filler, repeated explanations. Plain text, no LaTeX."""
