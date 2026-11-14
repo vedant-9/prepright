@@ -21,9 +21,11 @@ type fails verification -> the question is dropped. Extend by adding a
 solver here; the model learns new types via the tool prompt (tools.py).
 """
 
+from collections import Counter
 from dataclasses import dataclass
 
-from sympy import Rational, Symbol, gcd, lcm, solve, sympify, zoo, oo, nan
+from sympy import (Rational, Symbol, cos, gcd, lcm, pi, sin, solve, sqrt,
+                   sympify, tan, zoo, oo, nan)
 
 # ---------------------------------------------------------------- result type
 
@@ -40,14 +42,31 @@ class Verified:
 # ---------------------------------------------------------------- formatting
 
 def _fmt(value) -> str:
-    """Canonical human format: 3 not 3.0; 7/2 not 3.5 for rationals."""
+    """Canonical human format: 3 not 3.0; 7/2 not 3.5; sqrt(2)/2 as √2/2."""
     if isinstance(value, Rational) and value.q == 1:
         return str(value.p)
     if isinstance(value, Rational):
         return f"{value.p}/{value.q}"
     if isinstance(value, (int,)):
         return str(value)
-    return str(value)
+    # trig exact values contain radicals. NB: sympy evaluates sqrt(3) to
+    # Pow(3, 1/2), so expr.has(sqrt) is FALSE - detect via the string form.
+    s = str(value)
+    if "sqrt(" in s:
+        return s.replace("sqrt(", "√").replace(")", "")
+    return s
+
+
+_TRIG_FN = {"sin": sin, "cos": cos, "tan": tan}
+_TRIG_DEG = (0, 30, 45, 60, 90)      # CBSE standard angles; tan 90 -> zoo -> dropped
+_COMPLEMENT = {0: 0, 30: 60, 60: 30, 45: 45, 90: 90}
+
+
+def _trig(fn: str, deg: int):
+    """Exact value of fn(deg) for standard angles."""
+    if fn not in _TRIG_FN or int(deg) not in _TRIG_DEG:
+        raise ValueError(f"unsupported trig spec: {fn} {deg}")
+    return sympify(_TRIG_FN[fn](Rational(int(deg), 180) * pi))
 
 
 def _roots_pair(coeffs: dict) -> tuple:
@@ -108,6 +127,7 @@ def solve_spec(spec: dict) -> tuple[str, object]:
     if t == "percentage":
         # {"part": 45, "whole": 60} -> 75 (%)
         v = Rational(spec["part"] * 100, spec["whole"])
+        _reject_non_finite(v)          # whole=0 -> zoo: the one branch that lacked the guard
         return _fmt(v), v
 
     if t == "gcd_lcm":
@@ -115,6 +135,40 @@ def solve_spec(spec: dict) -> tuple[str, object]:
         m, n = spec["m"], spec["n"]
         v = int(gcd(m, n)) if spec["op"] == "hcf" else int(lcm(m, n))
         return str(v), v
+
+    if t == "trig_value":
+        # {"fn": "sin", "deg": 30} -> exact value at a standard angle
+        v = _trig(spec["fn"], spec["deg"])
+        _reject_non_finite(v)          # tan 90 -> zoo -> question dropped
+        return _fmt(v), v
+
+    if t == "stats_basic":
+        # {"nums": [4,6,9,3,5], "stat": "mean" | "median" | "mode"}
+        stat = spec["stat"]
+        nums = [int(x) for x in spec["nums"]]
+        if not nums or stat not in ("mean", "median", "mode"):
+            raise ValueError(f"unsupported stats spec: {stat} {nums!r}")
+        if stat == "mean":
+            v = Rational(sum(nums), len(nums))
+        elif stat == "median":
+            s = sorted(nums)
+            n = len(s)
+            v = Rational(s[n // 2]) if n % 2 else Rational(s[n // 2 - 1] + s[n // 2], 2)
+        else:  # mode: one clear winner only - a tie is ambiguous, drop it
+            counts = Counter(nums)
+            winners = [k for k, c in counts.items() if c == max(counts.values())]
+            if len(winners) != 1:
+                raise ValueError(f"mode is ambiguous (tie): {nums!r}")
+            v = Rational(winners[0])
+        _reject_non_finite(v)
+        return _fmt(v), v
+
+    if t == "ap_term":
+        # {"a": 3, "d": 4, "n": 10} -> nth term = a + (n-1)*d
+        a, d, n = int(spec["a"]), int(spec["d"]), int(spec["n"])
+        v = Rational(a + (n - 1) * d)
+        _reject_non_finite(v)
+        return _fmt(v), v
 
     raise ValueError(f"unknown spec type: {t!r}")
 
@@ -139,13 +193,24 @@ def coherence_check(question_text: str, spec: dict) -> bool:
     """
     compact = question_text.replace(" ", "")
     for k, v in spec.items():
-        if k in ("type", "op", "expr"):
+        if k in ("type", "op", "expr", "fn", "stat"):
             continue
+        if isinstance(v, (list, tuple)):
+            # stats data: every number in the list must appear in the text
+            # (no 0/1 leniency - these are data points, not coefficients)
+            if any(str(item) not in compact for item in v):
+                return False
         if isinstance(v, (int, float)):
             if v in (0, 1):  # implicit/identity coefficients
                 continue
             if str(v) not in compact:
                 return False
+
+    if spec.get("type") == "trig_value":
+        # fn-word check, same bug class as the gcd_lcm op word: a cos spec
+        # phrased as "sin" in the text would compute the WRONG answer
+        if str(spec.get("fn", "")).lower() not in question_text.lower():
+            return False
 
     if "op" in spec and spec["type"] == "gcd_lcm":
         synonyms = {"hcf": ["hcf", "gcd", "highest common factor"],
@@ -187,16 +252,55 @@ def make_options(answer_text: str, answer_value, spec: dict) -> list[str]:
         m, n = spec["m"], spec["n"]
         other = int(lcm(m, n)) if spec["op"] == "hcf" else int(gcd(m, n))
         cands = [str(other), str(m * n), str(m + n)]        # classic confusions
+    elif t == "trig_value":
+        fn, deg = spec["fn"], int(spec["deg"])
+        partner = {"sin": "cos", "cos": "sin", "tan": "cos"}[fn]
+        cands_v = [
+            _trig(partner, deg),                            # sin<->cos confusion
+            _trig(fn, _COMPLEMENT[deg]),                    # complementary angle
+            -answer_value,                                  # sign error
+        ]
+        if answer_value != 0:                               # reciprocal (undefined at 0)
+            cands_v.append(sympify(1) / answer_value)
+        cands = [_fmt(c) for c in cands_v]
+    elif t == "stats_basic":
+        nums = [int(x) for x in spec["nums"]]
+        mean = Rational(sum(nums), len(nums))
+        s, n = sorted(nums), len(nums)
+        median = (Rational(s[n // 2]) if n % 2
+                  else Rational(s[n // 2 - 1] + s[n // 2], 2))
+        counts = Counter(nums)
+        winners = [k for k, c in counts.items() if c == max(counts.values())]
+        mode = Rational(winners[0]) if len(winners) == 1 else None
+        # the OTHER stats are the misconceptions (mean<->median<->mode mixups)
+        cands_v = [mean, median, answer_value + 1]
+        if mode is not None:
+            cands_v.append(mode)
+        cands = [_fmt(c) for c in cands_v]
+    elif t == "ap_term":
+        a, d, n = int(spec["a"]), int(spec["d"]), int(spec["n"])
+        cands = [
+            _fmt(Rational(a + n * d)),          # used n instead of n-1
+            _fmt(Rational(n * a)),              # multiplied instead of the formula
+            _fmt(Rational(a + (n - 2) * d)),    # one term early
+        ]
     else:
         # numeric answers: off-by-one, doubled, sign flip, big miss
         v = answer_value
         cands = [_fmt(c) for c in (v + 1, v - 1, -v, 2 * v, v + 10)]
 
     distractors = uniq([c for c in cands if c != answer_text])[:3]
-    while len(distractors) < 3:  # degenerate case (e.g. answer 0 kills -v and 2*v)
+    # BOUNDED padding: a verifier must fail CLOSED and fail FAST - never
+    # hang. For zoo/nan-style values, answer+k == answer forever, so an
+    # unbounded loop here could never terminate. Drop instead.
+    for _ in range(10):
+        if len(distractors) >= 3:
+            break
         cand = _fmt(answer_value + len(distractors) + 2)
         if cand not in distractors and cand != answer_text:
             distractors.append(cand)
+    if len(distractors) < 3:
+        raise ValueError(f"cannot build 3 distinct distractors for {answer_text!r}")
 
     return [answer_text, *distractors]
 
