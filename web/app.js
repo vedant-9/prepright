@@ -397,6 +397,19 @@ function applyGradeToCards(verdicts) {
   });
 }
 
+// Sequential thinking hints: a single "thinking..." for 30+ seconds reads
+// as broken. These advance IN ORDER (never cycle back - the tutor isn't
+// re-reading notes after double-checking) and hold on the last one.
+const THINKING_HINTS = [
+  "Reading your question…",
+  "Checking my notes…",
+  "Looking up the right concept…",
+  "Working through the steps…",
+  "Double-checking the answer…",
+  "Almost there…",
+];
+let _hintTimer = null;
+
 function setStreaming(on) {
   // THE composer state switch: buttons disable visibly while the tutor
   // works, but the INPUT STAYS ENABLED - the student can type their next
@@ -407,13 +420,31 @@ function setStreaming(on) {
   document.getElementById("photo-btn").disabled = on;
   document.getElementById("quiz-chip").disabled = on;
   els.status.classList.toggle("hidden", !on);
+  const hints = document.getElementById("thinking-hints");
   if (on) {
     // placeholder signals the state without blocking typing
     if (!els.input.dataset.restorePlaceholder) {
       els.input.dataset.restorePlaceholder = els.input.placeholder;
     }
     els.input.placeholder = "Type while you wait — Send unlocks when I'm done…";
+    // advance hints IN ORDER - never cycle back (a tutor doesn't re-read
+    // notes after double-checking). Holds on the last hint until real
+    // activity (tool chip or streaming text) takes over.
+    let i = 0;
+    hints.textContent = THINKING_HINTS[0];
+    hints.classList.remove("hidden");
+    clearInterval(_hintTimer);
+    _hintTimer = setInterval(() => {
+      if (i < THINKING_HINTS.length - 1) {
+        i++;
+        hints.textContent = THINKING_HINTS[i];
+      } else {
+        clearInterval(_hintTimer);   // hold on "Almost there..."
+      }
+    }, 4000);
   } else {
+    clearInterval(_hintTimer);
+    hints.classList.add("hidden");
     if (els.input.dataset.restorePlaceholder) {
       els.input.placeholder = els.input.dataset.restorePlaceholder;
     }
