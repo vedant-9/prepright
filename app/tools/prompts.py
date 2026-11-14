@@ -12,7 +12,10 @@ SPEC_MENU = """Allowed spec types (JSON "spec" must be exactly one of these):
 - {{"type": "quadratic_roots", "a": 1, "b": -5, "c": 6}}      -> solve a*x^2 + b*x + c = 0
 - {{"type": "evaluate", "expr": "x**2 + 5*x + 6", "val": 2}}  -> evaluate at a value
 - {{"type": "percentage", "part": 45, "whole": 60}}           -> part is what % of whole
-- {{"type": "gcd_lcm", "m": 12, "n": 18, "op": "hcf"}}        -> op is "hcf" or "lcm" """
+- {{"type": "gcd_lcm", "m": 12, "n": 18, "op": "hcf"}}        -> op is "hcf" or "lcm"
+- {{"type": "trig_value", "fn": "sin", "deg": 30}}            -> sin/cos/tan of 0, 30, 45, 60 or 90 degrees (NEVER tan 90 - it is undefined)
+- {{"type": "stats_basic", "nums": [4, 6, 9, 3, 5], "stat": "mean"}} -> stat is "mean", "median" or "mode" (mode only when one value clearly repeats most)
+- {{"type": "ap_term", "a": 3, "d": 4, "n": 10}}              -> nth term of an AP: a + (n-1)*d"""
 
 DIFFICULTY_GUIDE = {
     1: "single step, small friendly numbers",
