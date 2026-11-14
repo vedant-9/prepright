@@ -42,17 +42,17 @@ package "Cache" {
 }
 
 package "Draft (LLM)" {
-  rectangle "question text\n+ machine-readable spec\nno answers, ever" as DRAFT
+  rectangle "question text\n+ machine-readable spec\n9 spec types\nno answers, ever" as DRAFT
 }
 
 package "Verify (code)" #F3E5F5 {
-  rectangle "SymPy solve\ndeterministic answer\narithmetic, equations,\nquadratics, GCD/LCM" as SOLVE
+  rectangle "SymPy solve\ndeterministic answer\narithmetic, equations,\nquadratics, GCD/LCM,\ntrig values, stats, AP" as SOLVE
   rectangle "Coherence check\nspec numbers must appear\nin question text" as COHERENT
-  rectangle "Distractors\nmisconception rules\n(code, not model)" as DISTRACT
+  rectangle "Distractors\nmisconception rules\n(code, not model;\nbounded - drop, never hang)" as DISTRACT
 }
 
 package "Outcome" {
-  rectangle "verified quiz\nserved to student" as SERVE
+  rectangle "verified quiz\nserved to student\nscore from grading event,\nnever the model's prose" as SERVE
   rectangle "drop question" as DROP
   rectangle "retry or error" as RETRY
 }
