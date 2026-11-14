@@ -398,16 +398,27 @@ function applyGradeToCards(verdicts) {
 }
 
 function setStreaming(on) {
-  // THE composer state switch: while the tutor answers, every input is
-  // visibly disabled - a guarded-but-enabled button correctly does nothing
-  // and correctly feels broken. One setter, all controls, no exceptions.
+  // THE composer state switch: buttons disable visibly while the tutor
+  // works, but the INPUT STAYS ENABLED - the student can type their next
+  // question while waiting, then hit Send the moment the tutor finishes.
+  // (A disabled input during a long answer is dead time for a kid.)
   streaming = on;
   els.send.disabled = on;
-  els.input.disabled = on;
   document.getElementById("photo-btn").disabled = on;
   document.getElementById("quiz-chip").disabled = on;
   els.status.classList.toggle("hidden", !on);
-  if (!on) els.input.focus();
+  if (on) {
+    // placeholder signals the state without blocking typing
+    if (!els.input.dataset.restorePlaceholder) {
+      els.input.dataset.restorePlaceholder = els.input.placeholder;
+    }
+    els.input.placeholder = "Type while you wait — Send unlocks when I'm done…";
+  } else {
+    if (els.input.dataset.restorePlaceholder) {
+      els.input.placeholder = els.input.dataset.restorePlaceholder;
+    }
+    els.input.focus();
+  }
 }
 
 // ---------- quiz cards ------------------------
@@ -721,12 +732,19 @@ async function _sendWithPhoto(text) {
   els.messages.scrollTop = els.messages.scrollHeight;
 
   const busy = addAi("📷 Reading your photo…");
+  // vision on the free tier can take 20-60s; a silent indicator for that
+  // long reads as broken. This hint appears at 12s so the kid knows it's
+  // still working, not hung.
+  const slowHint = setTimeout(() => {
+    busy.textContent = "📷 Still reading… (free-tier vision is slow — hang on!)";
+  }, 12000);
   setStreaming(true);
   try {
     const res = await fetch("/api/photo", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ student_id: studentId, image_b64: b64, prompt: words }),
     });
+    clearTimeout(slowHint);
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "read failed");
     const out = await res.json();
     busy.remove();
@@ -737,6 +755,7 @@ async function _sendWithPhoto(text) {
     }
     _confirmExtraction(out.text, words, thumbSrc, userBubble);
   } catch (err) {
+    clearTimeout(slowHint);
     setStreaming(false);
     addAi("Photo didn't work — " + (err.message || "please try again"));
   }
