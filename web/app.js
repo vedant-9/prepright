@@ -82,6 +82,72 @@ function showPicker(students) {
 
 // (onboarding form removed — kid creation is on the parent page)
 
+const HISTORY_BATCH = 50;
+
+function _renderHistoryChunk(msgs, prepend) {
+  const firstExisting = prepend ? els.messages.querySelector(".msg") : null;
+  for (const m of msgs) {
+    // bubble() appends; for prepend we move each in above the oldest row.
+    // Every later insert lands before the same anchor, so chunk order holds.
+    let el;
+    if (m.role === "user") {
+      el = addUser(m.content);
+      // photo messages: this device kept a thumbnail (localStorage) -> show
+      // it; a different device or cleared storage -> honest placeholder,
+      // never a broken image
+      if (m.content.startsWith("📷")) {
+        const d = _getThumb(studentId, m.content);
+        const img = document.createElement("img");
+        if (d) {
+          img.src = d; img.alt = "your notebook photo";
+        } else {
+          img.remove();
+          const ph = document.createElement("div");
+          ph.className = "thumb-away";
+          ph.textContent = "📷 photo — saved on the device it was taken with";
+          el.appendChild(ph);
+          if (prepend && el) els.messages.insertBefore(el, firstExisting);
+          continue;
+        }
+        el.appendChild(img);
+      }
+    }
+    else if (m.role === "quiz") {
+      // replayed quiz: real cards, read-only (the grading session is gone)
+      renderStructuredQuiz(JSON.parse(m.content), true);
+      el = els.messages.lastChild;
+    } else el = addAi(m.content);
+    if (prepend && el) els.messages.insertBefore(el, firstExisting);
+  }
+}
+
+function _setLoadEarlier(visible, oldestId) {
+  let chip = document.getElementById("load-earlier");
+  if (!visible) { if (chip) chip.remove(); return; }
+  if (!chip) {
+    chip = document.createElement("button");
+    chip.type = "button";
+    chip.id = "load-earlier";
+    chip.className = "load-earlier";
+    chip.textContent = "↑ Load earlier messages";
+    chip.onclick = async () => {
+      const beforeId = Number(chip.dataset.oldest);
+      const keep = els.messages.scrollHeight - els.messages.scrollTop;  // viewport anchor
+      try {
+        const res = await fetch(`/api/students/${studentId}/messages` +
+                                `?limit=${HISTORY_BATCH}&before_id=${beforeId}`);
+        const older = await res.json();
+        _renderHistoryChunk(older, true);
+        els.messages.scrollTop = els.messages.scrollHeight - keep;      // stay put
+        _setLoadEarlier(older.length === HISTORY_BATCH,
+                        older.length ? older[0].id : beforeId);
+      } catch (e) { /* offline: leave the chip for a retry tap */ }
+    };
+    els.messages.insertBefore(chip, els.messages.firstChild);
+  }
+  chip.dataset.oldest = oldestId;
+}
+
 function enterChat(id, name) {
   localStorage.setItem("pr_last_kid", id);
   const bar = document.getElementById("picker");
@@ -95,8 +161,23 @@ function enterChat(id, name) {
   studentName = name;
   els.messages.innerHTML = "";
   els.chat.classList.remove("hidden");
-  addAi(`Hi ${studentName}! I'm PrepRight, your math buddy. ` +
-        `Which chapter shall we work on today?`);
+  // returning student: replay their past conversation instead of a blank
+  // chat (the tutor's MEMORY always survived; now the screen keeps up).
+  // Old quizzes replay as plain text - their answer keys are gone, so
+  // rendering live quiz cards would offer dead buttons.
+  fetch(`/api/students/${id}/messages?limit=${HISTORY_BATCH}`).then((r) => r.json()).then((msgs) => {
+    if (msgs.length) {
+      _renderHistoryChunk(msgs, false);
+      // full batch = there may be more history above
+      _setLoadEarlier(msgs.length === HISTORY_BATCH, msgs[0].id);
+    } else {
+      addAi(`Hi ${studentName}! I'm PrepRight, your math buddy. ` +
+            `Which chapter shall we work on today?`);
+    }
+  }).catch(() => {
+    addAi(`Hi ${studentName}! I'm PrepRight, your math buddy. ` +
+          `Which chapter shall we work on today?`);
+  });
 
 }
 
@@ -158,10 +239,30 @@ function addToolChip(toolName) {
 
 async function send(presetText) {
   const text = (presetText != null ? String(presetText) : els.input.value).trim();
-  if (!text || streaming || !studentId) return;
+  if (streaming || !studentId) return;
+  // an attached photo re-routes Send: image + typed words go together
+  if (dockedPhoto && presetText == null) {
+    return _sendWithPhoto(text);
+  }
+  if (!text) return;
+
+  // a confirmed photo's thumbnail is keyed to the message ACTUALLY sent
+  // (the student may have edited the staged text before pressing Send)
+  if (pendingPhotoThumb && text.startsWith("📷")) {
+    _saveThumb(studentId, text, pendingPhotoThumb);
+  }
+  pendingPhotoThumb = null;
 
   addUser(text);
   els.input.value = "";
+  _streamTurn(text);
+}
+
+// The streaming core: one agent turn for an already-displayed user
+// message. send() uses it after adding the bubble; the photo flow uses
+// it after the echo-back confirm, where the bubble has been visible
+// since the student's Send press.
+async function _streamTurn(text) {
   setStreaming(true);
 
   const aiBubble = bubble("ai");
@@ -221,8 +322,18 @@ async function send(presetText) {
           continue;
         }
         if (payload.grade) {
-          // Color the original quiz cards: green = correct, red = wrong pick
+          // Color the original quiz cards: green = correct, red = wrong pick.
+          // The SCORE comes from this data event, never from the model's
+          // prose - narration can miscount what the tool result got right.
+          // Data over prose, same rule as everything else here.
           applyGradeToCards(payload.grade.verdicts);
+          if (payload.grade.score) {
+            const s = document.createElement("div");
+            s.className = "msg ai score-line";
+            s.textContent = `Result: ${payload.grade.score} correct`;
+            els.messages.appendChild(s);
+            els.messages.scrollTop = els.messages.scrollHeight;
+          }
           continue;
         }
         if (payload.tool) {
@@ -263,8 +374,12 @@ async function send(presetText) {
 
 function applyGradeToCards(verdicts) {
   // Color the quiz cards: green = correct pick, green = right answer (shown),
-  // red = wrong pick. Uses the last set of .q-block elements in the chat.
-  var blocks = document.querySelectorAll(".q-block");
+  // red = wrong pick. Scoped to the LIVE quiz (.quiz-active): replayed
+  // quizzes also carry .q-block elements, and a global index would color
+  // the history instead of the quiz being graded. Text-quiz (learn mode)
+  // blocks carry no marker - fall back to the global scan for them.
+  var blocks = document.querySelectorAll(".quiz-active .q-block");
+  if (blocks.length === 0) blocks = document.querySelectorAll(".q-block");
   verdicts.forEach(function(v) {
     var block = blocks[v.question - 1];
     if (!block) return;
@@ -283,9 +398,14 @@ function applyGradeToCards(verdicts) {
 }
 
 function setStreaming(on) {
+  // THE composer state switch: while the tutor answers, every input is
+  // visibly disabled - a guarded-but-enabled button correctly does nothing
+  // and correctly feels broken. One setter, all controls, no exceptions.
   streaming = on;
   els.send.disabled = on;
   els.input.disabled = on;
+  document.getElementById("photo-btn").disabled = on;
+  document.getElementById("quiz-chip").disabled = on;
   els.status.classList.toggle("hidden", !on);
   if (!on) els.input.focus();
 }
@@ -364,8 +484,10 @@ function renderSingleCard(div, preText, block) {
   els.messages.scrollTop = els.messages.scrollHeight;
 }
 
-function renderBatchCard(div, preText, blocks) {
-  div.innerHTML = renderRich(preText.trim());
+function renderBatchCard(div, preText, blocks, readonly) {
+  // only REPLACE content for the text-quiz path (preText = the question
+  // text); the structured path passes "" and has already set a title/tag
+  if (preText.trim()) div.innerHTML = renderRich(preText.trim());
   const selections = new Map(); // question num -> letter
   const submitBtn = document.createElement("button");
   submitBtn.type = "button";
@@ -386,11 +508,12 @@ function renderBatchCard(div, preText, blocks) {
     const box = document.createElement("div");
     box.className = "opt-box";
     parseOptions(body).forEach((o) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "opt-btn";
+      // replayed quizzes render read-only: the grading session is gone,
+      // so the questions show as history, not as live buttons
+      const b = document.createElement(readonly ? "div" : "button");
+      b.className = "opt-btn" + (readonly ? " static" : "");
       b.textContent = `${o.letter})  ${o.text}`;
-      b.addEventListener("click", () => {
+      if (!readonly) b.addEventListener("click", () => {
         if (streaming) return;
         box.querySelectorAll(".opt-btn").forEach((x) => x.classList.remove("picked"));
         b.classList.add("picked");
@@ -403,17 +526,19 @@ function renderBatchCard(div, preText, blocks) {
     div.appendChild(q);
   });
 
-  submitBtn.addEventListener("click", () => {
-    if (streaming || submitBtn.disabled) return;
-    div.querySelectorAll(".opt-btn").forEach((x) => (x.disabled = true));
-    const answers = blocks.map((b) => `${b.num}:${selections.get(b.num)}`).join(" ");
-    els.input.value = "";
-    send(`My answers: ${answers}`);
-  });
-  const submitBox = document.createElement("div");
-  submitBox.className = "opt-box";
-  submitBox.appendChild(submitBtn);
-  div.appendChild(submitBox);
+  if (!readonly) {
+    submitBtn.addEventListener("click", () => {
+      if (streaming || submitBtn.disabled) return;
+      div.querySelectorAll(".opt-btn").forEach((x) => (x.disabled = true));
+      const answers = blocks.map((b) => `${b.num}:${selections.get(b.num)}`).join(" ");
+      els.input.value = "";
+      send(`My answers: ${answers}`);
+    });
+    const submitBox = document.createElement("div");
+    submitBox.className = "opt-box";
+    submitBox.appendChild(submitBtn);
+    div.appendChild(submitBox);
+  }
   els.messages.scrollTop = els.messages.scrollHeight;
 }
 
@@ -428,17 +553,31 @@ function parseOptions(text) {
 // Structured quiz: server-sent questions rendered directly - the
 // model never retypes them, so hallucinated/reformatted quizzes are
 // structurally impossible.
-function renderStructuredQuiz(quiz) {
+function renderStructuredQuiz(quiz, readonly) {
   if (!quiz.questions || quiz.questions.length === 0) return;  // safety: no empty cards
   const holder = document.createElement("div");
   holder.className = "msg ai";
   const title = quiz.chapter ? `**Quiz - ${quiz.chapter}** (difficulty ${quiz.difficulty}/5)` : "**Quiz**";
   holder.innerHTML = renderRich(title);
+  if (readonly) {
+    // a replayed quiz must announce itself - dead-looking buttons read as
+    // broken to anyone who doesn't know it's history
+    const tag = document.createElement("div");
+    tag.className = "quiz-replay-tag";
+    tag.textContent = "Past quiz — already answered";
+    holder.appendChild(tag);
+  } else {
+    // the LIVE quiz: grade events must color THIS quiz's blocks, not
+    // whichever .q-block elements happen to sit earlier in the chat
+    const prev = document.querySelector(".quiz-active");
+    if (prev) prev.classList.remove("quiz-active");
+    holder.classList.add("quiz-active");
+  }
   const LETTERS = ["A", "B", "C", "D"];
   renderBatchCard(holder, "", quiz.questions.map((q) => ({
     num: q.num,
     lines: [q.text, ...q.options.map((text, i) => `${LETTERS[i]}) ${text}`)],
-  })));
+  })), readonly);
   els.messages.appendChild(holder);
   els.messages.scrollTop = els.messages.scrollHeight;
 }
@@ -507,3 +646,244 @@ document.getElementById("quiz-chip").onclick = () => {
 // ---------- boot ----------
 
 loadStudents();
+
+
+// ---------- notebook photo input (attach-then-send pattern) ----------
+// Privacy is the design, not a feature: the image is re-encoded through a
+// canvas BEFORE upload (destroys EXIF/GPS metadata and downsizes to 1280px,
+// all device-side), and the server keeps it in request memory only. The
+// photo button only DOCKS a preview chip at the composer; the student
+// types freely, and ONE Send carries image + words. The echo-back card
+// after Send is the trust bridge: extraction is a proposal, the student
+// is ground truth - a misread digit never reaches the tutor unconfirmed.
+let dockedPhoto = null;        // {b64, dataUrl} while a photo is attached
+
+document.getElementById("photo-btn").onclick = () => {
+  if (!studentId || streaming) return;
+  document.getElementById("photo-input").click();
+};
+
+document.getElementById("photo-input").onchange = async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";                       // allow re-picking the same file
+  if (!file) return;
+  try {
+    const b64 = await _stripExifAndShrink(file);
+    dockedPhoto = { b64: b64, dataUrl: `data:image/jpeg;base64,${b64}` };
+    _renderDock();
+    els.input.focus();
+  } catch (err) {
+    addAi("That photo didn't work — try another one 📸");
+  }
+};
+
+function _renderDock() {
+  let dock = document.getElementById("photo-dock");
+  if (!dockedPhoto) { if (dock) dock.remove(); return; }
+  if (!dock) {
+    dock = document.createElement("div");
+    dock.id = "photo-dock";
+    const x = document.createElement("button");
+    x.type = "button";
+    x.id = "photo-dock-x";
+    x.textContent = "✕";
+    x.title = "Remove photo";
+    x.onclick = () => { dockedPhoto = null; _renderDock(); els.input.focus(); };
+    dock.appendChild(x);
+    els.composer.insertBefore(dock, els.input);
+  }
+  dock.style.backgroundImage = `url(${dockedPhoto.dataUrl})`;
+  els.input.placeholder = "Add a message with your photo (optional)…";
+}
+
+function _clearDock() {
+  dockedPhoto = null;
+  const dock = document.getElementById("photo-dock");
+  if (dock) dock.remove();
+  els.input.placeholder = "Ask about any chapter — e.g. 'help me with quadratic equations'";
+}
+
+async function _sendWithPhoto(text) {
+  // Send with an attached photo: the student's message appears IMMEDIATELY
+  // (their bubble first, processing below it), then the
+  // vision read runs with their words as context, then the echo-back card.
+  const b64 = dockedPhoto.b64;
+  const words = text.trim() || "Help me solve this problem";
+  const thumbSrc = dockedPhoto.dataUrl;
+  _clearDock();
+  els.input.value = "";
+
+  // their message, visible the instant they press Send
+  const userBubble = bubble("user", `📷 ${words}`);
+  const img = document.createElement("img");
+  img.src = thumbSrc; img.alt = "your photo";
+  userBubble.insertBefore(img, userBubble.firstChild);
+  els.messages.scrollTop = els.messages.scrollHeight;
+
+  const busy = addAi("📷 Reading your photo…");
+  setStreaming(true);
+  try {
+    const res = await fetch("/api/photo", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ student_id: studentId, image_b64: b64, prompt: words }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "read failed");
+    const out = await res.json();
+    busy.remove();
+    setStreaming(false);
+    if (!out.found) {
+      addAi("Hmm, I couldn't find a maths problem in that photo. Try one page, one problem, good light 📸");
+      return;
+    }
+    _confirmExtraction(out.text, words, thumbSrc, userBubble);
+  } catch (err) {
+    setStreaming(false);
+    addAi("Photo didn't work — " + (err.message || "please try again"));
+  }
+}
+
+function _stripExifAndShrink(file) {
+  // canvas re-encode: every EXIF/GPS tag dies here, before any byte leaves
+  // the device. Max 1280px keeps the vision payload small.
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      resolve(dataUrl.split(",")[1]);         // strip the data: prefix
+    };
+    img.onerror = () => reject(new Error("couldn't read that image"));
+    img.src = url;
+  });
+}
+
+// the staged thumbnail of a just-confirmed photo, waiting for the student's
+// own Send press (confirm stages the message; it never auto-sends)
+let pendingPhotoThumb = null;
+
+// ---------- device-local photo thumbnails ----------
+// The photo stays visible in the student's chat FOREVER - but only on the
+// device that took it (which already holds the original). Thumbnails live
+// in localStorage, keyed by the confirmed message content; the server
+// never receives or stores a single image byte. Other devices replay the
+// message with a graceful placeholder instead of a broken image.
+const THUMB_MAX = 25;   // ~20KB each -> hard ceiling around half a meg
+
+function _thumbStore(studentId) {
+  try { return JSON.parse(localStorage.getItem(`pr_thumbs_${studentId}`)) || []; }
+  catch (e) { return []; }
+}
+
+function _saveThumb(studentId, msgContent, dataUrl) {
+  try {
+    const store = _thumbStore(studentId);
+    store.push({ h: msgContent, d: dataUrl });
+    while (store.length > THUMB_MAX) store.shift();     // oldest out, storage capped
+    localStorage.setItem(`pr_thumbs_${studentId}`, JSON.stringify(store));
+  } catch (e) { /* quota exceeded: thumbnails are cosmetic, never fatal */ }
+}
+
+function _getThumb(studentId, msgContent) {
+  const hit = _thumbStore(studentId).find(t => t.h === msgContent);
+  return hit ? hit.d : null;
+}
+
+function _shrinkForStore(dataUrl) {
+  // 160px jpeg ~20KB: enough to recognize the page, kind to the quota
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 160 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      resolve(c.toDataURL("image/jpeg", 0.7));
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+function _confirmExtraction(text, words, thumbSrc, userBubble) {
+  // echo-back card: the student confirms or edits the READ before the
+  // tutor acts on it. This is the bridge that keeps compute-don't-trust
+  // intact for photographed problems: a misread digit dies here.
+  const card = document.createElement("div");
+  card.className = "msg ai extract-card";
+  card.innerHTML =
+    `<div>I read this as:</div>` +
+    `<blockquote>${renderRich(text)}</blockquote>` +
+    `<div class="extract-actions">` +
+    `<button type="button" class="opt-btn correct">✓ Correct — teach me</button>` +
+    `<button type="button" class="opt-btn">✏️ Edit</button></div>`;
+  els.messages.appendChild(card);
+  els.messages.scrollTop = els.messages.scrollHeight;
+  // chips stay dimmed while the card pends: the next action belongs to
+  // the card (confirm/edit), not to starting a parallel question
+  document.getElementById("photo-btn").disabled = true;
+  document.getElementById("quiz-chip").disabled = true;
+  const [ok, edit] = card.querySelectorAll("button");
+  // The full message = the student's words (sent) + the confirmed read
+  // (reviewed here). Confirm folds the read into the already-visible
+  // bubble and starts the agent turn - no duplicate bubble.
+  const staged = `📷 ${words} — photo reads: ${text}`;
+  const release = () => {
+    document.getElementById("photo-btn").disabled = false;
+    document.getElementById("quiz-chip").disabled = false;
+  };
+  ok.onclick = () => {
+    card.remove();
+    release();
+    if (userBubble) {
+      // bubble() wrote a single text node; img was inserted before it.
+      // Update the text in place so the displayed message matches what
+      // the agent receives and what history stores.
+      const t = userBubble.lastChild;
+      if (t && t.nodeType === 3) t.nodeValue = staged;
+    }
+    if (thumbSrc) _shrinkForStore(thumbSrc).then(d => d && _saveThumb(studentId, staged, d));
+    _streamTurn(staged);
+  };
+  edit.onclick = () => {
+    card.remove();
+    release();                                // they are rewording: chips live
+    if (userBubble) userBubble.remove();     // they want to reword it
+    els.input.value = staged;
+    els.input.focus();
+  };
+}
+
+
+// ---------- new chat (fresh conversation, scores preserved) ----------
+// Clears BOTH stores: the messages table (visible history) and the
+// checkpointer thread (the tutor's memory). Progress lives in a separate
+// table and survives - a fresh chat is a fresh conversation, not a fresh
+// student. confirm() is dead in webviews, hence the modal.
+document.getElementById("newchat-btn").onclick = () => {
+  if (!studentId || streaming) return;   // no mid-turn wipes: orphaned replies
+  document.getElementById("confirm-modal").classList.remove("hidden");
+};
+
+document.getElementById("confirm-no").onclick = () =>
+  document.getElementById("confirm-modal").classList.add("hidden");
+
+document.getElementById("confirm-yes").onclick = async () => {
+  document.getElementById("confirm-modal").classList.add("hidden");
+  if (!studentId) return;
+  try {
+    await fetch(`/api/students/${studentId}/chat`, { method: "DELETE" });
+  } catch (e) { /* even if the wire fails, the local reset below stands */ }
+  // thumbnails die with the conversation they belonged to - no orphans
+  localStorage.removeItem(`pr_thumbs_${studentId}`);
+  els.messages.innerHTML = "";
+  addAi(`Fresh start! What shall we work on, ${studentName}?`);
+};
+
+

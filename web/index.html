@@ -13,6 +13,7 @@
   <header>
     <div class="brand">Prep<span>Right</span></div>
     <span id="current-kid" class="current-kid"></span>
+    <button id="newchat-btn" class="nav-btn" title="Start a fresh conversation (scores stay)">+ New chat</button>
     <button id="parent-btn" class="nav-btn">For Parents →</button>
   </header>
 
@@ -41,11 +42,24 @@
     <div id="messages" aria-live="polite"></div>
     <div id="status" class="status hidden">PrepRight is thinking…</div>
     <form id="composer">
-      <button type="button" id="quiz-chip" class="quiz-chip" title="Quick quiz">🎯 Quiz</button>
+      <button type="button" id="quiz-chip" class="quiz-chip" title="Quick quiz">🎯 <span class="chip-label">Quiz</span></button>
+      <button type="button" id="photo-btn" class="quiz-chip" title="Snap a notebook problem">📷 <span class="chip-label">Photo</span></button>
+      <input type="file" id="photo-input" accept="image/*" capture="environment" class="hidden" />
       <input id="input" placeholder="Ask about any chapter — e.g. 'help me with quadratic equations'" autocomplete="off" maxlength="2000" />
       <button type="submit" id="send">Send</button>
     </form>
   </main>
+
+  <div id="confirm-modal" class="modal hidden">
+    <div class="card">
+      <h3 id="confirm-title">Start a new chat?</h3>
+      <p id="confirm-body" class="muted">Your scores and progress stay — only the conversation clears.</p>
+      <div class="extract-actions">
+        <button type="button" id="confirm-yes" class="opt-btn correct">Yes, fresh start</button>
+        <button type="button" id="confirm-no" class="opt-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
 
   <div id="pin-modal" class="modal hidden">
     <div class="card">
