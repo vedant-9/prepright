@@ -32,6 +32,13 @@ class StudentOut(BaseModel):
     created_at: str
 
 
+class MessageOut(BaseModel):
+    id: int
+    role: str          # 'user' | 'ai'
+    content: str
+    created_at: str
+
+
 # --- endpoints --------------------------------------------------------------
 
 @router.post("/students", response_model=StudentOut, status_code=201)
@@ -61,6 +68,42 @@ def get_student(student_id: int) -> StudentOut:
     if row is None:
         raise HTTPException(status_code=404, detail="student not found")
     return StudentOut(**dict(row))
+
+
+@router.get("/students/{student_id}/messages", response_model=list[MessageOut])
+def get_messages(student_id: int, limit: int = 50,
+                 before_id: int | None = None) -> list[MessageOut]:
+    """Chat transcript for UI replay: most recent `limit` messages, oldest
+    first. Only completed turns are stored, so this reads as a clean
+    conversation. `before_id` paginates backwards ("load earlier")."""
+    with get_conn() as conn:
+        if conn.execute("SELECT 1 FROM students WHERE id = ?", (student_id,)).fetchone() is None:
+            raise HTTPException(status_code=404, detail="student not found")
+        sql = "SELECT * FROM messages WHERE student_id = ?"
+        params: list = [student_id]
+        if before_id is not None:
+            sql += " AND id < ?"
+            params.append(before_id)
+        sql += " ORDER BY id DESC LIMIT ?"
+        params.append(max(1, min(limit, 200)))
+        rows = conn.execute(sql, params).fetchall()
+    return [MessageOut(**dict(r)) for r in reversed(rows)]
+
+
+@router.delete("/students/{student_id}/chat", status_code=204)
+async def clear_chat(student_id: int):
+    """Fresh conversation for a student. Clears BOTH stores that make up a
+    chat: the messages table (visible history) and the checkpointer thread
+    (the tutor's memory). Progress is deliberately UNTOUCHED - quiz results,
+    PrepScore and chapter flags live in progress_events and survive the
+    reset: a fresh chat is a fresh conversation, not a fresh student."""
+    from app.agent.graph import graph
+    with get_conn() as conn:
+        if conn.execute("SELECT 1 FROM students WHERE id = ?", (student_id,)).fetchone() is None:
+            raise HTTPException(status_code=404, detail="student not found")
+        conn.execute("DELETE FROM messages WHERE student_id = ?", (student_id,))
+    await graph.checkpointer.adelete_thread(f"student-{student_id}")
+    return None
 
 
 @router.get("/curriculum")

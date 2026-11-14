@@ -99,6 +99,21 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     expires_at TEXT NOT NULL
 );
+
+-- Chat transcript, written at the API boundary on COMPLETED turns only
+-- (a failed turn persists nothing - a retry reads as a fresh question).
+-- Content is the PII-redacted text: phones/emails never reach storage.
+-- This is the UI replay source - deliberately NOT the LangGraph
+-- checkpointer, whose blobs are framework-internal.
+CREATE TABLE IF NOT EXISTS messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id INTEGER NOT NULL REFERENCES students(id),
+    role       TEXT NOT NULL,               -- 'user' | 'ai'
+    content    TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_student ON messages (student_id, id);
 """
 
 
