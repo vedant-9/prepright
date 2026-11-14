@@ -91,7 +91,7 @@ _looks_like_quota_error = is_quota_error
 def extract_text(content: object) -> str:
     """Normalize AIMessage.content to a plain string.
 
-    REAL-WORLD LESSON (hit in  testing): `.content` is NOT always a str.
+    REAL-WORLD VARIANCE: `.content` is NOT always a str.
     Gemini 3.x returns a list of content blocks
     ([{'type': 'text', 'text': ..., 'extras': ...}]); other providers
     return plain strings. Callers shouldn't care — the LLM layer's job
@@ -147,6 +147,30 @@ def generate_structured(schema: Type[T], messages: list[BaseMessage]) -> T:
         log.warning("primary provider (%s) hit quota on structured call: %s — falling back to %s",
                     settings.llm_provider, exc, fallback)
         return get_chat_model(fallback).with_structured_output(schema).invoke(messages)
+
+
+def vision_extract(image_b64: str, prompt: str) -> str:
+    """One multimodal call: image (raw base64 JPEG bytes, no data: prefix)
+    + instruction -> text. Used by notebook photo input.
+
+    PRIVACY CONTRACT: the caller passes image BYTES ONLY and this function
+    returns extracted TEXT ONLY - the image never enters state, logs,
+    checkpoints, or storage. It exists in request memory for the duration
+    of this call and is garbage-collected after.
+
+    Vision is Gemini-only today (the free tier is multimodal; Groq's
+    vision models churn) - no fallback chain, quota deaths surface to the
+    endpoint's friendly-error path like any other provider failure.
+    """
+    from langchain_core.messages import HumanMessage
+
+    message = HumanMessage(content=[
+        {"type": "text", "text": prompt},
+        {"type": "image_url",
+         "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+    ])
+    model = get_chat_model("gemini")
+    return extract_text(model.invoke([message]).content)
 
 
 if __name__ == "__main__":
