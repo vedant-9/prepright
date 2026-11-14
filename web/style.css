@@ -208,3 +208,31 @@ main#chat { min-height: 0; }
 
 .action-btn.danger { border-color: #ff6b6b; color: #ff6b6b; }
 .action-btn.danger:hover { background: rgba(255,107,107,0.1); }
+
+/* notebook photo extraction card (echo-back confirmation) */
+.extract-card blockquote { margin: 8px 0; padding: 10px 14px; background: rgba(0,0,0,0.3); border-left: 3px solid var(--accent); border-radius: 6px; font-size: 1.05rem; }
+.extract-actions { display: flex; gap: 8px; margin-top: 10px; }
+.load-earlier { display: block; margin: 0 auto 10px; background: transparent; border: 1px solid #4a6fa5; color: var(--muted); font-size: 0.85rem; padding: 5px 14px; border-radius: 14px; }
+.load-earlier:hover { border-color: var(--accent); color: var(--text); }
+.opt-btn.static { cursor: default; opacity: 0.85; }
+.opt-btn.static:hover { border-color: #2a3650; }
+.quiz-replay-tag { display: inline-block; margin: 6px 0 2px; padding: 3px 10px; border-radius: 10px; background: rgba(0,0,0,0.35); color: var(--muted); font-size: 0.78rem; letter-spacing: 0.02em; }
+.score-line { font-weight: 600; color: var(--accent); border: 1px solid #4a6fa5; border-radius: 8px; padding: 6px 12px; align-self: flex-start; }
+.msg.user img { max-width: 220px; max-height: 160px; border-radius: 10px; border: 1px solid #4a6fa5; display: block; margin-top: 4px; }
+.thumb-away { margin-top: 4px; padding: 8px 12px; border: 1px dashed #4a6fa5; border-radius: 8px; color: var(--muted); font-size: 0.82rem; }
+/* attached-photo dock chip in the composer */
+#photo-dock { width: 54px; height: 54px; border-radius: 10px; background-size: cover; background-position: center; border: 1px solid #4a6fa5; position: relative; flex-shrink: 0; }
+#photo-dock-x { position: absolute; top: -7px; right: -7px; width: 20px; height: 20px; border-radius: 50%; padding: 0; font-size: 0.7rem; line-height: 1; background: #2a3650; border: 1px solid #4a6fa5; }
+
+/* ---------- phones ---------- */
+#composer input { min-width: 0; }   /* flex items refuse to shrink without this */
+@media (max-width: 520px) {
+  header { gap: 8px; padding: 8px 10px; }
+  .brand { font-size: 1.05rem; }
+  .nav-btn { padding: 6px 8px; font-size: 0.8rem; }
+  #composer { gap: 6px; padding: 8px 10px; }
+  .quiz-chip { padding: 8px 9px; font-size: 0.8rem; }
+  main { padding: 10px; }
+  .modal .card { width: min(320px, calc(100vw - 32px)); }
+}
+@media (max-width: 520px) { .chip-label { display: none; } }   /* emoji-only chips on phones */
