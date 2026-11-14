@@ -105,6 +105,16 @@ _OBVIOUS_NON_MATH_RE = re.compile(
     r"girlfriend|boyfriend|dating|football match)\b",
     re.IGNORECASE)
 
+# GREETINGS pass through to the model: a kid saying "hey" to their tutor
+# is not off-topic, it's a greeting - the model's system prompt already
+# tells it to greet warmly and ask what they want. Without this list,
+# the LLM classifier correctly flags "hey" as non-math and the canned
+# rejection fires before the tutor can say hello back.
+_GREETING_RE = re.compile(
+    r"^(hi+|hey+|hello+|yo|namaste|hola|good (morning|afternoon|evening)|"
+    r"(what'?s up|sup|wassup|hii+|heyy+))[!.\s]*$",
+    re.IGNORECASE)
+
 
 def is_off_topic(text: str, *, classify=None) -> bool:
     """True if unrelated to maths/study -> canned redirect, zero chat tokens.
@@ -122,6 +132,8 @@ def is_off_topic(text: str, *, classify=None) -> bool:
     """
     if has_math_evidence(text):
         return False
+    if _GREETING_RE.match(text.strip()):
+        return False  # greetings reach the model, which greets back warmly
     if _OBVIOUS_NON_MATH_RE.search(text) and not has_math_evidence(text):
         return True  # deterministic fast-reject, zero LLM cost
     if classify is not None:

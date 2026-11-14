@@ -143,3 +143,17 @@ def test_pure_off_topic_blocked_by_classifier(monkeypatch):
     # no evidence -> the open-vocabulary classifier decides
     monkeypatch.setattr(gd, "_classify_with_llm", lambda t: True)
     assert is_off_topic("who is modi") is True
+
+
+def test_greetings_pass_through_to_the_tutor():
+    """A kid saying 'hey' is greeting their tutor, not going off-topic.
+    Without this, the classifier flags it and the canned rejection fires
+    before the model can greet back."""
+    from app.agent.guardrails import is_off_topic
+    for greeting in ("hey", "hi", "hello", "yo", "namaste",
+                     "good morning", "hii", "heyy!!", "what's up"):
+        assert not is_off_topic(greeting), f"{greeting!r} must reach the tutor"
+    # greetings mixed with math still pass (math evidence fires first)
+    assert not is_off_topic("hey, what is 5 * 3?")
+    # but non-greeting chit-chat still gets screened
+    assert is_off_topic("who is the president")
