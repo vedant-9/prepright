@@ -27,14 +27,14 @@ from pathlib import Path
 from typing import AsyncIterator
 
 from langchain_core.messages import (AIMessage, AIMessageChunk, HumanMessage,
-                                     SystemMessage, ToolMessage)
+                                     RemoveMessage, SystemMessage, ToolMessage)
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, START, MessagesState, StateGraph
 
 from app.agent.guardrails import OFF_TOPIC_REPLY, SAFE_REFUSAL, is_blocked, is_off_topic
-from app.agent.prompts import SYSTEM_TEMPLATE
-from app.llm.gateway import (_fallback_provider, extract_text, get_chat_model,
+from app.agent.prompts import SUMMARIZE_TEMPLATE, SYSTEM_TEMPLATE
+from app.llm.gateway import (_fallback_provider, chat, extract_text, get_chat_model,
                              is_quota_error)
 from app.tools import TOOLS
 
@@ -47,17 +47,29 @@ log = logging.getLogger("prepright.agent")
 # still making runaway loops impossible.
 RECURSION_LIMIT = 16
 
+# MEMORY COMPRESSION: every turn replays full history into the model, so
+# long conversations grow linearly until provider token limits bite (lived
+# through Groq TPM 413s). Above CONDENSE_AFTER messages, older turns fold
+# into a running summary; the tail stays verbatim. A quiz round is ~6-8
+# messages, so KEEP_TAIL=10 preserves at least the current exchange plus
+# the previous one's context.
+CONDENSE_AFTER = 24
+KEEP_TAIL = 10
+
 
 class TutorState(MessagesState):
-    """MessagesState + a blocked flag the guardrail sets for routing."""
+    """MessagesState + routing/summary fields. `summary` is the compressed
+    memory of turns older than the kept tail (plain overwrite - it
+    checkpoints like `blocked`)."""
     blocked: bool
+    summary: str
 
 
 # ---------------------------------------------------------------- checkpointer
 # Separate database from prepright.db on purpose: these are LangGraph's
 # tables, and a framework upgrade should never touch our domain schema.
 #
-# ASYNC SAVER + STARTUP COMPILE (a  war story): the sync SqliteSaver
+# ASYNC SAVER + STARTUP COMPILE: the sync SqliteSaver
 # cannot serve graph.astream() - it raised at the first request. The async
 # saver is an async context manager, so the graph now compiles ONCE at app
 # startup (see main.py lifespan -> init_graph), not at import time.
@@ -98,6 +110,61 @@ def guardrail_node(state: TutorState):
     return {"blocked": False}
 
 
+def _default_summarizer(text: str) -> str:
+    """Plain completion with the built-in quota fallback."""
+    return chat([SystemMessage(content=SUMMARIZE_TEMPLATE), HumanMessage(content=text)])
+
+
+def make_condense_node(summarizer=None):
+    """Fold older turns into a running summary so history growth is bounded.
+
+    FAIL-OPEN: if the summarizer dies (quota, provider), the node is a
+    no-op and the full history proceeds - a dead compressor must never
+    break tutoring.
+
+    BOUNDARY RULE: the cut always lands on a HumanMessage. Tool-call
+    pairs (AIMessage(tool_calls) + its ToolMessages) live BETWEEN human
+    turns, so cutting at a human boundary can never split one - providers
+    reject orphaned tool results.
+    """
+    if summarizer is None:
+        summarizer = _default_summarizer
+
+    def condense_node(state: TutorState):
+        messages = state["messages"]
+        if len(messages) <= CONDENSE_AFTER:
+            return {}                              # under threshold: zero cost
+
+        cut = len(messages) - KEEP_TAIL
+        while cut > 0 and not isinstance(messages[cut], HumanMessage):
+            cut -= 1                               # walk back to a human turn
+        if cut <= 0:
+            return {}                              # pathological: nothing safe to fold
+
+        old, tail = messages[:cut], messages[cut:]
+
+        # flatten old turns for the summarizer: role + text, tool JSON capped
+        lines = []
+        if state.get("summary"):
+            lines.append(f"Previous summary:\n{state['summary']}\n")
+        for m in old:
+            role = m.__class__.__name__[:4].lower()  # huma/aim/tool/syst
+            body = extract_text(m.content) if not isinstance(m.content, str) else m.content
+            lines.append(f"{role}: {str(body)[:200]}")
+
+        try:
+            new_summary = summarizer("\n".join(lines))
+        except Exception as exc:
+            log.warning("condense failed, proceeding with full history (%s: %s)",
+                        type(exc).__name__, str(exc)[:120])
+            return {}
+
+        removals = [RemoveMessage(id=m.id) for m in old if getattr(m, "id", None)]
+        return {"messages": removals, "summary": new_summary}
+
+    return condense_node
+
+
 def make_agent_node(model_with_tools):
     """The tutor's brain. Student identity rides in via config (NOT stored in
     state) so the system prompt is rebuilt fresh each request and never
@@ -128,7 +195,13 @@ def make_agent_node(model_with_tools):
             name=student.get("name", "friend"),
             grade=student.get("grade", 10),
         ))
-        messages = [system, *state["messages"]]
+        # summary (if old turns were condensed) rides right under the system
+        # prompt: the model keeps long-run context without the token cost
+        messages = [system]
+        if state.get("summary"):
+            messages.append(SystemMessage(
+                content=f"Summary of earlier turns in this conversation:\n{state['summary']}"))
+        messages.extend(state["messages"])
         try:
             response = model_with_tools.invoke(messages)
         except Exception as exc:
@@ -186,7 +259,7 @@ def tools_node(state: TutorState, config: RunnableConfig):
 # ---------------------------------------------------------------- routing
 
 def route_after_guardrail(state: TutorState) -> str:
-    return END if state.get("blocked") else "agent"
+    return END if state.get("blocked") else "condense"
 
 
 def route_after_agent(state: TutorState) -> str:
@@ -203,18 +276,20 @@ def route_after_agent(state: TutorState) -> str:
     return "tools" if calls else END
 
 
-def _build_graph(checkpointer, model_with_tools=None):
-    # model injectable for deterministic fake-model tests (test_agent.py)
+def _build_graph(checkpointer, model_with_tools=None, summarizer=None):
+    # model + summarizer injectable for deterministic fake-model tests
     if model_with_tools is None:
         model_with_tools = get_chat_model().bind_tools(TOOLS)
 
     graph = StateGraph(TutorState)
     graph.add_node("guardrail", guardrail_node)
+    graph.add_node("condense", make_condense_node(summarizer))
     graph.add_node("agent", make_agent_node(model_with_tools))
     graph.add_node("tools", tools_node)
 
     graph.add_edge(START, "guardrail")
-    graph.add_conditional_edges("guardrail", route_after_guardrail, ["agent", END])
+    graph.add_conditional_edges("guardrail", route_after_guardrail, ["condense", END])
+    graph.add_edge("condense", "agent")
     graph.add_conditional_edges("agent", route_after_agent, ["tools", END])
     graph.add_edge("tools", "agent")  # the loop: results go back to the model
 
