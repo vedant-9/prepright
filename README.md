@@ -42,7 +42,7 @@ Quizzes cover what has a computable answer — algebra, equations, number system
 
 ![Architecture](diagrams/architecture.png)
 
-A LangGraph agent (guardrail → model → 8 tools) with a 3-model fallback chain, RAG concept lookup, and per-student conversation memory that compresses itself as sessions grow long. Provider SDKs — chat, embeddings, and photo vision — are imported by exactly one file, so swapping models touches nothing else.
+A LangGraph agent (guardrail → condense → model → 8 tools) with a 3-model fallback chain, RAG concept lookup, and per-student conversation memory that compresses itself as sessions grow long. Provider SDKs — chat, embeddings, and photo vision — are imported by exactly one file, so swapping models touches nothing else.
 
 ## Quick start
 
@@ -78,6 +78,6 @@ Open `http://127.0.0.1:8000` — works on phones too.
 ## Testing
 
 ```bash
-pytest tests/ -v          # 94 tests, zero network
+pytest tests/ -v          # 100 tests, zero network
 python -m evals.run_evals # retrieval golden set + quiz integrity
 ```
