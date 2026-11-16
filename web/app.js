@@ -655,27 +655,37 @@ function pinError() {
 
 // gear: PIN-gated jump to the parent dashboard (same device, kid-safe exit)
 document.getElementById("parent-btn").onclick = async () => {
-  // no parent ever signed in on this device: there is no PIN to ask for
-  if (!JSON.parse(localStorage.getItem("pr_parent") || "{}").id) {
+  const parent = JSON.parse(localStorage.getItem("pr_parent") || "{}");
+  // no parent ever signed in on this device: straight to sign-in
+  if (!parent.id) {
     location.href = "/parent.html";
     return;
   }
-  const pin = await askPin("Parent PIN");
+  // CHECK THE PARENT EXISTS before asking for a PIN: a server reset
+  // (ephemeral demo storage) wipes the DB, and asking a kid to type a
+  // PIN for an account that no longer exists is confusing waste.
+  // The kids endpoint is unauthenticated and serves as an existence probe.
+  try {
+    const probe = await fetch(`/api/parent/${parent.id}/kids`);
+    if (!probe.ok) {
+      localStorage.removeItem("pr_parent");
+      location.href = "/parent.html";
+      return;
+    }
+  } catch (e) { /* network hiccup: fall through to the PIN flow */ }
+  // the parent exists: ask for THEIR pin by name so the kid knows
+  // whose PIN this is (shared device, multiple parents)
+  const pin = await askPin(`${parent.name || "Parent"}'s PIN`);
   if (!pin) return;
-  const parent = JSON.parse(localStorage.getItem("pr_parent") || "{}");
   const res = await fetch("/api/parent/login", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ parent_id: parent.id, pin }),
   });
   if (res.ok) location.href = "/parent.html";
   else if (res.status === 404) {
-    // server reset wiped this parent (ephemeral demo storage): clear the
-    // ghost session and send them to sign-in, which recreates the profile
     localStorage.removeItem("pr_parent");
-    const err = document.getElementById("pin-error");
-    err.classList.remove("hidden");
-    err.textContent = "Profile was reset — reopening parent sign-in…";
-    setTimeout(() => location.href = "/parent.html", 1400);
+    location.href = "/parent.html";
+    return;
   }
   else pinError();
 };
