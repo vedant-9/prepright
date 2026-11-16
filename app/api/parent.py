@@ -49,6 +49,19 @@ def require_parent(authorization: str = Header(None)) -> int:
         row = conn.execute(
             "SELECT parent_id, expires_at FROM auth_sessions WHERE token = ?",
             (token,)).fetchone()
+    if row is None or row["expires_at"] < datetime.utcnow().isoformat():
+        raise HTTPException(status_code=401, detail="session expired - sign in again")
+    return row["parent_id"]
+
+
+def require_own_parent(parent_id: int, authorization: str = Header(None)) -> int:
+    """Stricter dependency: validates the token AND that it belongs to the
+    parent_id in the URL. Prevents any authenticated parent from acting on
+    another parent's data (dashboard, add/delete kid, reports)."""
+    authenticated = require_parent(authorization)
+    if authenticated != parent_id:
+        raise HTTPException(status_code=403, detail="this account belongs to another parent")
+    return authenticated
     if row is None:
         raise HTTPException(status_code=401, detail="invalid session")
     if row["expires_at"] < datetime.utcnow().isoformat():
@@ -133,7 +146,7 @@ def list_kids(parent_id: int) -> list[dict]:
 
 
 @router.post("/parent/{parent_id}/kids", status_code=201)
-def add_kid(parent_id: int, body: KidIn, _auth: int = Depends(require_parent)) -> dict:
+def add_kid(parent_id: int, body: KidIn, _auth: int = Depends(require_own_parent)) -> dict:
     with get_conn() as conn:
         cur = conn.execute(
             "INSERT INTO students (parent_id, name, grade, board) VALUES (?, ?, ?, ?)",
@@ -146,7 +159,7 @@ def add_kid(parent_id: int, body: KidIn, _auth: int = Depends(require_parent)) -
 
 @router.delete("/parent/{parent_id}/kids/{student_id}")
 def delete_kid(parent_id: int, student_id: int,
-               _auth: int = Depends(require_parent)) -> dict:
+               _auth: int = Depends(require_own_parent)) -> dict:
     """Remove a kid profile and all associated data (progress, sessions).
     Auth is the session token; re-authenticating the parent PIN before
     deletion is the hardening step when this endpoint faces the internet."""
@@ -166,7 +179,7 @@ def delete_kid(parent_id: int, student_id: int,
 
 
 @router.get("/parent/{parent_id}/dashboard")
-def dashboard(parent_id: int, _auth: int = Depends(require_parent)) -> dict:
+def dashboard(parent_id: int, _auth: int = Depends(require_own_parent)) -> dict:
     """Mastery per kid per chapter + PrepScore + struggle flags."""
     kids = _kids_of(parent_id)
     out = []
@@ -195,7 +208,7 @@ def dashboard(parent_id: int, _auth: int = Depends(require_parent)) -> dict:
 
 
 @router.post("/parent/{parent_id}/report/{student_id}")
-def generate_report(parent_id: int, student_id: int, _auth: int = Depends(require_parent)) -> dict:
+def generate_report(parent_id: int, student_id: int, _auth: int = Depends(require_own_parent)) -> dict:
     """Weekly report card: LLM narrative over the mastery data, stored
     immutable (one per student per week)."""
     dash = dashboard(parent_id)
@@ -243,7 +256,7 @@ def generate_report(parent_id: int, student_id: int, _auth: int = Depends(requir
 
 
 @router.get("/parent/{parent_id}/reports/{student_id}")
-def get_reports(parent_id: int, student_id: int, _auth: int = Depends(require_parent)) -> list[dict]:
+def get_reports(parent_id: int, student_id: int, _auth: int = Depends(require_own_parent)) -> list[dict]:
     with get_conn() as conn:
         rows = conn.execute(
             "SELECT content_json FROM reports WHERE student_id = ? "

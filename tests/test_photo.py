@@ -78,3 +78,20 @@ def test_photo_vision_failure_is_friendly_503(client, monkeypatch):
     r = client.post("/api/photo", json={"student_id": sid, "image_b64": "E" * 500})
     assert r.status_code == 503
     assert "busy" in r.json()["detail"].lower()          # kid-friendly, no internals
+
+
+def test_photo_prompt_is_pii_redacted(client, monkeypatch):
+    """The student's typed prompt must be PII-redacted before it reaches the
+    vision provider - a phone number typed as a photo caption never crosses."""
+    from app.api import chat as chat_mod
+    sid = _student(client)
+    captured = {}
+    def fake_vision(image_b64, prompt):
+        captured["prompt"] = prompt
+        return "2x + 3 = 7"
+    monkeypatch.setattr(chat_mod, "vision_extract", fake_vision)
+    client.post("/api/photo", json={
+        "student_id": sid, "image_b64": "A" * 500,
+        "prompt": "call me at 9876543210 to explain"})
+    assert "9876543210" not in captured["prompt"]
+    assert "[phone removed]" in captured["prompt"]

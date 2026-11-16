@@ -87,7 +87,11 @@ async def photo(body: PhotoIn) -> dict:
     _get_student(body.student_id)
     instruction = EXTRACTION_PROMPT
     if body.prompt.strip():
-        instruction += f"\nThe student asks: {body.prompt.strip()}"
+        # PII redaction before the prompt reaches any provider — same
+        # boundary rule as the chat endpoint. A phone number typed as a
+        # photo caption never crosses to Gemini.
+        clean_prompt = redact_pii(body.prompt.strip())
+        instruction += f"\nThe student asks: {clean_prompt}"
     try:
         # to_thread is not optional: vision_extract is a SYNCHRONOUS SDK
         # call, and running it inline parks the whole event loop for the

@@ -71,3 +71,17 @@ def test_login_unknown_parent_is_404_not_wrong_pin(client):
     parent who typed their PIN correctly that they typed it wrong."""
     assert client.post("/api/parent/login",
                        json={"parent_id": 99999, "pin": "1234"}).status_code == 404
+
+
+def test_parent_a_cannot_access_parent_b_dashboard(client):
+    """Any authenticated parent acting on another parent's data must get 403.
+    The old require_parent validated the token but never compared the
+    authenticated parent_id to the URL's parent_id."""
+    pid_a, _, headers_a = _signup_and_token(client, name="A", pin="1111")
+    pid_b, _, _ = _signup_and_token(client, name="B", pin="2222")
+    # A's valid token on B's dashboard = 403, not B's data
+    r = client.get(f"/api/parent/{pid_b}/dashboard", headers=headers_a)
+    assert r.status_code == 403
+    # A's valid token on A's own dashboard = 200
+    r_own = client.get(f"/api/parent/{pid_a}/dashboard", headers=headers_a)
+    assert r_own.status_code == 200
