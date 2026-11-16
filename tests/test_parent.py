@@ -85,3 +85,32 @@ def test_parent_a_cannot_access_parent_b_dashboard(client):
     # A's valid token on A's own dashboard = 200
     r_own = client.get(f"/api/parent/{pid_a}/dashboard", headers=headers_a)
     assert r_own.status_code == 200
+
+
+def test_kids_endpoint_requires_auth(client):
+    """Kid profiles are the parent's data - no token, no access."""
+    p = client.post("/api/parent/signup", json={"name": "R", "pin": "1234"}).json()
+    pid = p["parent"]["id"]
+    assert client.get(f"/api/parent/{pid}/kids").status_code == 401
+
+
+def test_exists_endpoint_leaks_nothing(client):
+    """The existence probe returns only exists: true/false, never kid data."""
+    p = client.post("/api/parent/signup", json={"name": "R", "pin": "1234"}).json()
+    pid = p["parent"]["id"]
+    r = client.get(f"/api/parent/{pid}/exists").json()
+    assert r == {"exists": True}
+    assert "kids" not in str(r).lower()
+    assert client.get("/api/parent/99999/exists").json() == {"exists": False}
+
+
+def test_reports_scoped_to_own_students(client):
+    """Parent A cannot read reports for Parent B's student, even with a
+    valid token on their own parent_id in the URL."""
+    pid_a, _, headers_a = _signup_and_token(client, name="A", pin="1111")
+    pid_b, _, _ = _signup_and_token(client, name="B", pin="2222")
+    # B has a kid
+    client.post(f"/api/parent/{pid_b}/kids", json={"name": "BKid", "grade": 10})
+    # A tries to read B's kid's reports via A's own URL
+    r = client.get(f"/api/parent/{pid_a}/reports/1", headers=headers_a)
+    assert r.status_code == 404   # not A's student

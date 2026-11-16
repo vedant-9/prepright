@@ -45,7 +45,10 @@ async function loadStudents() {
   const saved = localStorage.getItem("pr_parent");
   if (!saved) { location.href = "/parent.html"; return; }
   const parent = JSON.parse(saved);
-  const students = await (await fetch(`/api/parent/${parent.id}/kids`)).json();
+  const students = await (await fetch(`/api/parent/${parent.id}/kids`, {
+    headers: parent.token ? { "Authorization": `Bearer ${parent.token}` } : {}
+  })).json();
+  if (!Array.isArray(students)) { location.href = "/parent.html"; return; }
   allKids = students;   // kept for the PIN-gated switcher
 
   const picked = sessionStorage.getItem("pr_kid");       // deep-link from dashboard
@@ -664,10 +667,11 @@ document.getElementById("parent-btn").onclick = async () => {
   // CHECK THE PARENT EXISTS before asking for a PIN: a server reset
   // (ephemeral demo storage) wipes the DB, and asking a kid to type a
   // PIN for an account that no longer exists is confusing waste.
-  // The kids endpoint is unauthenticated and serves as an existence probe.
+  // The exists endpoint returns only {exists: true/false} - no kid data.
   try {
-    const probe = await fetch(`/api/parent/${parent.id}/kids`);
-    if (!probe.ok) {
+    const probe = await fetch(`/api/parent/${parent.id}/exists`);
+    const out = await probe.json();
+    if (!out.exists) {
       localStorage.removeItem("pr_parent");
       location.href = "/parent.html";
       return;

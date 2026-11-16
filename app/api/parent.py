@@ -62,11 +62,6 @@ def require_own_parent(parent_id: int, authorization: str = Header(None)) -> int
     if authenticated != parent_id:
         raise HTTPException(status_code=403, detail="this account belongs to another parent")
     return authenticated
-    if row is None:
-        raise HTTPException(status_code=401, detail="invalid session")
-    if row["expires_at"] < datetime.utcnow().isoformat():
-        raise HTTPException(status_code=401, detail="session expired")
-    return row["parent_id"]
 
 
 # ---------------------------------------------------------------- helpers
@@ -140,8 +135,21 @@ def parent_login(body: ParentLogin) -> dict:
     return {"parent": {"id": row["id"], "name": row["name"]}, "kids": kids}
 
 
+@router.get("/parent/{parent_id}/exists")
+def parent_exists(parent_id: int) -> dict:
+    """Minimal existence probe for the kid-page PIN gate: returns whether
+    the parent account exists on this server, WITHOUT exposing any kid
+    data. Used after a server reset to detect ghost sessions."""
+    with get_conn() as conn:
+        row = conn.execute("SELECT 1 FROM parents WHERE id = ?",
+                           (parent_id,)).fetchone()
+    return {"exists": row is not None}
+
+
 @router.get("/parent/{parent_id}/kids")
-def list_kids(parent_id: int) -> list[dict]:
+def list_kids(parent_id: int,
+              _auth: int = Depends(require_own_parent)) -> list[dict]:
+    """Kid profiles are the parent's data - protected by their own token."""
     return _kids_of(parent_id)
 
 
@@ -257,7 +265,13 @@ def generate_report(parent_id: int, student_id: int, _auth: int = Depends(requir
 
 @router.get("/parent/{parent_id}/reports/{student_id}")
 def get_reports(parent_id: int, student_id: int, _auth: int = Depends(require_own_parent)) -> list[dict]:
+    # the student must belong to THIS parent - not just any student_id
     with get_conn() as conn:
+        owns = conn.execute(
+            "SELECT 1 FROM students WHERE id = ? AND parent_id = ?",
+            (student_id, parent_id)).fetchone()
+        if owns is None:
+            raise HTTPException(status_code=404, detail="student not found")
         rows = conn.execute(
             "SELECT content_json FROM reports WHERE student_id = ? "
             "ORDER BY week DESC", (student_id,)).fetchall()
