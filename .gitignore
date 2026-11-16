@@ -19,3 +19,9 @@ docs/
 
 # private commit-guard patterns (local only)
 .commit-guard
+
+# local testing infrastructure
+Makefile
+scripts/smoke_test.py
+scripts/e2e_test.py
+e2e_screenshots/
