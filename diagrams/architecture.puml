@@ -99,6 +99,8 @@ T4 --> EMB
 T6 --> DB
 T7 --> DB
 PARENT --> DB : Bearer auth
+CKPT -up-> CONDENSE : reads + deletes old turns
+CKPT .up.> AGENT : restores thread state
 note right of TOOLS
   student_id injected
   server-side (model
